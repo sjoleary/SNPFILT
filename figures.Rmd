@@ -1,0 +1,522 @@
+---
+title: "Figures"
+output:
+  html_document:
+    toc: yes
+  html_notebook:
+    code_folding: hide
+    df_print: paged
+    highlight: kate
+    theme: yeti
+    toc: yes
+---
+
+```{r load libraries, message=FALSE, warning=FALSE}
+
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+
+# # initiate git repository
+# system('git config --global user.email "shannon.j.oleary@gmail.com"')
+# system('git config --global user.name "shannon"')
+
+source("scr/libraries.R")
+source("scr/ggplot.R")
+source("scr/VCFfilterstats.R")
+# source("scr/HaplotypR.R")
+source("scr/xtrafunctions.R")
+# source("scr/genind.R")
+
+```
+
+# Figure 1: Library effects
+
+```{r}
+
+# load data
+LibEffect <- read.table("data/SNAPPER/Snapper_LibEffect.txt",
+                        header = TRUE, stringsAsFactors = FALSE)
+
+# View(LibEffect)
+
+# Cairo(width = 8, height = 4,
+#       file = "results/fig/Figure1.png", type = "png", pointsize = 12,
+#       bg = "transparent", canvas = "white",
+#       units = "in", dpi = 300)
+# 
+# # plot
+# ggplot(LibEffect, aes(x = LD1, y = LD2, fill = Library, shape = Library)) +
+#   geom_point(size = 2) +
+#   labs(x = "PC1", y = "PC2") +
+#   facet_grid(. ~ LIBEFFECT) +
+#   scale_fill_manual(values = c("#258039", "#F5BE41", "#CF3721", "#375E97")) +
+#   scale_shape_manual(values = c(21, 22, 23, 24)) +
+#   theme_standard
+# 
+# dev.off()
+
+# library(svglite)
+
+# svg("results/fig/Figure1.svg", width = 14, height = 7)
+
+ggplot(LibEffect, aes(x = LD1, y = LD2, fill = Library, shape = Library)) +
+  geom_point(size = 2, stroke = 0.25) +
+  labs(x = "PC1", y = "PC2") +
+  facet_grid(. ~ LIBEFFECT) +
+  scale_fill_manual(values = c("#258039", "#F5BE41", "#CF3721", "#375E97")) +
+  scale_shape_manual(values = c(21, 22, 23, 24)) +
+  theme_standard
+
+# dev.off()
+
+ggsave("results/fig/Figure1.svg", device = "svg", scale = 1,
+       width = 169, height = 120, units = "mm", dpi = 300)
+
+```
+
+# Figure 2: Distribution of missing data red snapper
+
+```{r, fig.height=6, fig.width=8}
+
+# Figure 2a ----
+raw_lmiss_rs <- read.table("results/SNAPPER_raw.lmiss",
+                           header = TRUE, stringsAsFactors = FALSE)
+
+
+ggplot(raw_lmiss_rs, aes(x = F_MISS)) +
+  geom_histogram(binwidth = .025, color = "black", fill = "#F5BE41") +
+  geom_vline(aes(xintercept = mean(F_MISS, na.rm = TRUE)),
+                 color = "#CF3721", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.1),
+                 color = "#375E97", linetype = "dotted", size = 1) +
+  scale_x_continuous(limits = c(0, 1)) +
+  scale_y_continuous(limits = c(0, 150000)) +
+  labs(x = " ", y = "number of loci") +
+  theme_standard
+
+ggsave("results/fig/Figure2a.svg", device = "svg", scale = 1,
+       width = 80, height = 60, units = "mm", dpi = 300)
+
+
+# Figure 2b ----
+minQ20minDP5meanDP10_lmiss_rs <- read.table("results/SNAPPER_minQ20minDP5meanDP10.lmiss",
+                           header = TRUE, stringsAsFactors = FALSE)
+
+ggplot(minQ20minDP5meanDP10_lmiss_rs, aes(x = F_MISS)) +
+  geom_histogram(binwidth = .025, color = "black", fill = "#F5BE41") +
+  geom_vline(aes(xintercept = mean(F_MISS, na.rm = TRUE)),
+                 color = "#CF3721", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.1),
+                 color = "#375E97", linetype = "dotted", size = 1) +
+  scale_x_continuous(limits = c(0, 1)) +
+  labs(x = "missing data per locus", y = "number of loci") +
+  theme_standard
+
+ggsave("results/fig/Figure2b.svg", device = "svg", scale = 1,
+       width = 80, height = 60, units = "mm", dpi = 300)
+
+
+# Figure 2c ----
+raw_imiss_rs <- read.table("results/SNAPPER_raw.imiss",
+                           header = TRUE, stringsAsFactors = FALSE)
+
+ggplot(raw_imiss_rs, aes(x = F_MISS)) +
+  geom_histogram(binwidth = .025, color = "black", fill = "#F5BE41") +
+  geom_vline(aes(xintercept = mean(F_MISS, na.rm = TRUE)),
+                 color = "#CF3721", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.25),
+                 color = "#375E97", linetype = "dotted", size = 1) +
+  scale_x_continuous(limits = c(0, 1)) +
+  labs(x = " ", y = "number of indv") +
+  theme_standard
+
+ggsave("results/fig/Figure2c.svg", device = "svg", scale = 1,
+       width = 80, height = 60, units = "mm", dpi = 300)
+
+
+# Figure 2d ----
+minQ20minDP5meanDP10_imiss_rs <- read.table("results/SNAPPER_minQ20minDP5meanDP10.imiss",
+                           header = TRUE, stringsAsFactors = FALSE)
+
+ggplot(minQ20minDP5meanDP10_imiss_rs, aes(x = F_MISS)) +
+  geom_histogram(binwidth = .025, color = "black", fill = "#F5BE41") +
+  geom_vline(aes(xintercept = mean(F_MISS, na.rm = TRUE)),
+                 color = "#CF3721", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.25),
+                 color = "#375E97", linetype = "dotted", size = 1) +
+  scale_x_continuous(limits = c(0, 1)) +
+  labs(x = "missing data per indv", y = "number of indv") +
+  theme_standard
+
+ggsave("results/fig/Figure2d.svg", device = "svg", scale = 1,
+       width = 80, height = 60, units = "mm", dpi = 300)
+
+```
+
+# Figure 3: Distribution of missing data southern Flounder
+
+```{r, fig.height=6, fig.width=8}
+
+# Figure 3a ----
+raw_lmiss_rs <- read.table("results/FLOUNDER_raw.lmiss",
+                           header = TRUE, stringsAsFactors = FALSE)
+
+ggplot(raw_lmiss_rs, aes(x = F_MISS)) +
+  geom_histogram(binwidth = .025, color = "black", fill = "#F5BE41") +
+  geom_vline(aes(xintercept = mean(F_MISS, na.rm = TRUE)),
+                 color = "#CF3721", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.1),
+                 color = "#375E97", linetype = "dotted", size = 1) +
+  scale_x_continuous(limits = c(0, 1)) +
+  labs(x = " ", y = "number of loci") +
+  theme_standard
+
+ggsave("results/fig/Figure3a.svg", device = "svg", scale = 1,
+       width = 80, height = 60, units = "mm", dpi = 300)
+
+
+# Figure 3b ----
+minQ20minDP5meanDP10_lmiss_rs <- read.table("results/FLOUNDER_minQ20minDP5meanDP10.lmiss",
+                           header = TRUE, stringsAsFactors = FALSE)
+
+ggplot(minQ20minDP5meanDP10_lmiss_rs, aes(x = F_MISS)) +
+  geom_histogram(binwidth = .025, color = "black", fill = "#F5BE41") +
+  geom_vline(aes(xintercept = mean(F_MISS, na.rm = TRUE)),
+                 color = "#CF3721", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.1),
+                 color = "#375E97", linetype = "dotted", size = 1) +
+  scale_x_continuous(limits = c(0, 1)) +
+  labs(x = "missing data per locus", y = "number of loci") +
+  theme_standard
+
+ggsave("results/fig/Figure3b.svg", device = "svg", scale = 1,
+       width = 80, height = 60, units = "mm", dpi = 300)
+
+
+# Figure 3c ----
+raw_imiss_rs <- read.table("results/FLOUNDER_raw.imiss",
+                           header = TRUE, stringsAsFactors = FALSE)
+
+ggplot(raw_imiss_rs, aes(x = F_MISS)) +
+  geom_histogram(binwidth = .025, color = "black", fill = "#F5BE41") +
+  geom_vline(aes(xintercept = mean(F_MISS, na.rm = TRUE)),
+                 color = "#CF3721", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.25),
+                 color = "#375E97", linetype = "dotted", size = 1) +
+  scale_x_continuous(limits = c(0, 1)) +
+  labs(x = " ", y = "number of indv") +
+  theme_standard
+
+ggsave("results/fig/Figure3c.svg", device = "svg", scale = 1,
+       width = 80, height = 60, units = "mm", dpi = 300)
+
+# Figure 3d ----
+minQ20minDP5meanDP10_imiss_rs <- read.table("results/FLOUNDER_minQ20minDP5meanDP10.imiss",
+                           header = TRUE, stringsAsFactors = FALSE)
+
+p4 <- ggplot(minQ20minDP5meanDP10_imiss_rs, aes(x = F_MISS)) +
+  geom_histogram(binwidth = .025, color = "black", fill = "#F5BE41") +
+  geom_vline(aes(xintercept = mean(F_MISS, na.rm = TRUE)),
+                 color = "#CF3721", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.25),
+                 color = "#375E97", linetype = "dotted", size = 1) +
+  scale_x_continuous(limits = c(0, 1)) +
+  labs(x = "missing data per indv", y = "number of indv") +
+  theme_standard
+
+ggsave("results/fig/Figure3d.svg", device = "svg", scale = 1,
+       width = 80, height = 60, units = "mm", dpi = 300)
+
+```
+
+
+# Figure 4: Depth distribution red snapper
+
+```{r}
+
+depth <- read.table("results/SNAPPER_FIL-4.ldepth.mean",
+                    stringsAsFactors = FALSE, header = TRUE)
+
+mode <- as.numeric(Mode(depth$MEAN_DEPTH))
+
+quantile <- as.numeric(quantile(depth$MEAN_DEPTH, probs = c(.95)))
+
+ggplot(depth, aes(x = MEAN_DEPTH)) +
+  geom_histogram(binwidth = 5, color = "black", fill = "#F5BE41") +
+  geom_vline(xintercept = 2*mode, color = "#CF3721", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = quantile, color = "#375E97", linetype = "dotted", size = 1) +
+  labs(x = "mean depth per locus", y = "number of loci") +
+  theme_standard
+
+ggsave("results/fig/Figure4.svg", device = "svg", scale = 1,
+       width = 160, height = 100, units = "mm", dpi = 300)
+
+```
+
+# Figure 5: Allele balance drum
+
+Allele balance is the ratio of reads for reference allele to all reads, considering only reads from individuals called as heterozygous. Values range from 0 - 1; allele balance (for real loci) should be approx. 0.5. Filter contigs SNPs for which the with allele balance < 0.25 and > 0.75. Filter contigs with SNP calls with AB > 0.2, AB > 0.8; retain loci very close to 0 (retain loci that are fixed variants).
+
+```{r, fig.height=7, fig.width=4}
+
+read.table("data/DRUM/DRUM_raw.AB",
+           col.names = "AB", stringsAsFactors = FALSE) %>%
+  ggplot(aes(x = AB)) +
+  geom_histogram(binwidth = 0.02, color = "black", fill = "#F5BE41") +
+  geom_vline(xintercept = 0.5, color = "#CF3721", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = 0.2, color = "#375E97", linetype = "dotted", size = 1) +
+  geom_vline(xintercept = 0.8, color = "#375E97", linetype = "dotted", size = 1) +
+  labs(x = " ") +
+  theme_standard
+
+ggsave("results/fig/Figure5a.svg", device = "svg", scale = 1,
+       width = 160, height = 120, units = "mm", dpi = 300)
+
+read.table("data/DRUM/DRUM_minQ20minDP5meanDP10geno70ind50.AB",
+           col.names = "AB", stringsAsFactors = FALSE) %>%
+  ggplot(aes(x = AB)) +
+  geom_histogram(binwidth = 0.02, color = "black", fill = "#F5BE41") +
+  geom_vline(xintercept = 0.5, color = "#CF3721", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = 0.2, color = "#375E97", linetype = "dotted", size = 1) +
+  geom_vline(xintercept = 0.8, color = "#375E97", linetype = "dotted", size = 1) +
+  labs(x = " ") +
+  theme_standard
+
+ggsave("results/fig/Figure5b.svg", device = "svg", scale = 1,
+       width = 160, height = 120, units = "mm", dpi = 300)
+
+read.table("data/DRUM/DRUM_minQ20mac3minDP5meanDP10geno70ind50.AB",
+           col.names = "AB", stringsAsFactors = FALSE) %>%
+  ggplot(aes(x = AB)) +
+  geom_histogram(binwidth = 0.02, color = "black", fill = "#F5BE41") +
+  geom_vline(xintercept = 0.5, color = "#CF3721", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = 0.2, color = "#375E97", linetype = "dotted", size = 1) +
+  geom_vline(xintercept = 0.8, color = "#375E97", linetype = "dotted", size = 1) +
+  labs(x = "Allele balance") +
+  theme_standard
+
+ggsave("results/fig/Figure5c.svg", device = "svg", scale = 1,
+       width = 160, height = 120, units = "mm", dpi = 300)
+
+```
+
+# Figure 6 Map quality ratios
+
+Remove loci based on ratio of mapping quality for reference and alternate allele, i.e. sites that have a high discrepancy between the mapping qualities of two alleles.
+
+MQM: mapping quality for alternate allele
+MQMR: Mapping quality reference allele
+
+"MQM / MQMR > 0.25 & MQM / MQMR < 1.75"
+
+```{r plot map qual ratios, fig.height=4, fig.width=8}
+
+# plot mac filter
+temp <- read.table("data/FLOUNDER/FLOUNDER_minQ20mac3minDP5meanDP10geno70ind50.MQM", col.names = "MQM")
+
+mapqual <- read.table("data/FLOUNDER/FLOUNDER_minQ20mac3minDP5meanDP10geno70ind50.MQMR", col.names = "MQMR")
+
+mapqual <- bind_cols(mapqual, temp) %>%
+  mutate(ratio = MQM/MQMR)
+
+filter <- mapqual %>%
+  filter(ratio < 0.25 | ratio > 1.75)
+
+ggplot(mapqual, aes(x = MQM, y = MQMR)) +
+  geom_point(shape = 1) + 
+  geom_abline(intercept = 0, slope = 1, size = 1, color = "red", linetype = "dashed") +
+  geom_abline(intercept = 0, slope = 4, size = 1, color = "darkblue", linetype = "dashed") +
+  geom_abline(intercept = 0, slope = 0.571, size = 1, color = "darkblue", linetype = "dashed") +
+  geom_point(data = filter, aes(x = MQM, y = MQMR), shape = 1, color = "red") +
+  scale_x_continuous(limits = c(0, 65)) + 
+  scale_y_continuous(limits = c(0, 65)) +
+  labs(x = "", y = "") +
+  theme_standard
+
+ggsave("results/fig/Figure6a.png", device = "png", scale = 1,
+       width = 100, height = 85, units = "mm", dpi = 300)
+
+# plot no mac filter
+temp <- read.table("data/FLOUNDER/FLOUNDER_minQ20minDP5meanDP10geno70ind50.MQM", col.names = "MQM")
+
+mapqual <- read.table("data/FLOUNDER/FLOUNDER_minQ20minDP5meanDP10geno70ind50.MQMR", col.names = "MQMR")
+
+mapqual <- bind_cols(mapqual, temp) %>%
+  mutate(ratio = MQM/MQMR)
+
+filter <- mapqual %>%
+  filter(ratio < 0.25 | ratio > 1.75)
+
+ggplot(mapqual, aes(x = MQM, y = MQMR)) +
+  geom_point(shape = 1) + 
+  geom_abline(intercept = 0, slope = 1, size = 1, color = "red", linetype = "dashed") +
+  geom_abline(intercept = 0, slope = 4, size = 1, color = "darkblue", linetype = "dashed") +
+  geom_abline(intercept = 0, slope = 0.571, size = 1, color = "darkblue", linetype = "dashed") +
+  geom_point(data = filter, aes(x = MQM, y = MQMR), shape = 1, color = "red") +
+  scale_x_continuous(limits = c(0, 65)) + 
+  scale_y_continuous(limits = c(0, 65)) +
+  labs(x = " ", y = " ") +
+  theme_standard
+
+ggsave("results/fig/Figure6b.png", device = "png", scale = 1,
+       width = 100, height = 85, units = "mm", dpi = 300)
+
+```
+
+# Figure 7: Strand balance
+
+SRF: Number of reference observations on the forward strand
+SRR: Number of reference observations on the reverse strand
+SAF: Number of alternate observations on the forward strand
+SAR: Number of alternate observations on the reverse strand
+
+Paired end reads should not overlap, and a SNP site should only be covered by either the forward or reverse read (strand). 
+
+```{r plot strandedness, fig.height=4, fig.width=8, message=FALSE, warning=FALSE}
+
+SAF <- read.table("data/SNAPPER/genome/SNAPPER_minQ20minDP5meanDP10geno70ind50.SAF",
+                  col.names = "SAF")
+
+SAR <- read.table("data/SNAPPER/genome/SNAPPER_minQ20minDP5meanDP10geno70ind50.SAR",
+                  col.names = "SAR")
+
+strands1 <- bind_cols(SAF, SAR)
+
+SAF <- read.table("data/SNAPPER/genome/SNAPPER_minQ20mac3minDP5meanDP10geno70ind50.SAF",
+                  col.names = "SAF")
+
+SAR <- read.table("data/SNAPPER/genome/SNAPPER_minQ20mac3minDP5meanDP10geno70ind50.SAR",
+                  col.names = "SAR")
+
+strands2 <- bind_cols(SAF, SAR)
+
+# plot no mac ----
+ggplot(strands1, aes(x = SAF, y = SAR)) +
+  geom_point(shape = 1) +
+  geom_abline(intercept = 0, slope = 0.01, color = "darkblue", linetype = "dashed", size = 0.8) +
+  geom_abline(intercept = 0, slope = 100, color = "darkblue", linetype = "dashed", size = 0.8) +
+  labs(x = " ", y = " " ) +
+  scale_y_continuous(limits = c(0, 67000)) +
+  scale_x_continuous(limits = c(0, 67000)) +
+  theme_standard
+
+ggsave("results/fig/Figure7a.png", device = "png", scale = 1,
+       width = 100, height = 85, units = "mm", dpi = 300)
+
+scientific_10 <- function(x) {
+  parse(text = gsub("e", " %*% 10^", scales::scientific_format()(x)))
+}
+
+
+# plot no mac logarithmic----
+ggplot(strands1, aes(x = SAF, y = SAR)) +
+  geom_point(shape = 1) +
+  geom_abline(intercept = 0, slope = 0.01, color = "darkblue", linetype = "dashed", size = 0.8) +
+  geom_abline(intercept = 0, slope = 100, color = "darkblue", linetype = "dashed", size = 0.8) +
+  labs(x = " ", y = " " ) +
+  scale_y_continuous(trans = "log10", labels = scientific_10,
+                     limits = c(0.00001, 100010),
+                     breaks = c(0, 0.00001, 0.001, 0.1, 10, 1000, 100000)) +
+  scale_x_continuous(trans = "log10", labels = scientific_10,
+                     limits = c(0.00001, 100001),
+                     breaks = c(0, 0.00001, 0.001, 0.1, 10, 1000, 100000)) +
+  theme_standard
+
+ggsave("results/fig/Figure7a_log.png", device = "png", scale = 1,
+       width = 110, height = 85, units = "mm", dpi = 300)
+
+
+# plot mac ----
+ggplot(strands2, aes(x = SAF, y = SAR)) +
+  geom_point(shape = 1) +
+  geom_abline(intercept = 0, slope = 0.01, color = "darkblue", linetype = "dashed", size = 0.8) +
+  geom_abline(intercept = 0, slope = 100, color = "darkblue", linetype = "dashed", size = 0.8) +
+  labs(x = " ", y = " " ) +
+  scale_y_continuous(limits = c(0, 67000)) +
+  scale_x_continuous(limits = c(0, 67000)) +
+  theme_standard
+
+ggsave("results/fig/Figure7b.png", device = "png", scale = 1,
+       width = 100, height = 85, units = "mm", dpi = 300)
+
+# plot mac logarithmic ----
+ggplot(strands2, aes(x = SAF, y = SAR)) +
+  geom_point(shape = 1) +
+  geom_abline(intercept = 0, slope = 0.01, color = "darkblue", linetype = "dashed", size = 0.8) +
+  geom_abline(intercept = 0, slope = 100, color = "darkblue", linetype = "dashed", size = 0.8) +
+  labs(x = " ", y = " " ) +
+  scale_y_continuous(trans = "log10", labels = scientific_10,
+                     limits = c(0.00001, 100010),
+                     breaks = c(0, 0.00001, 0.001, 0.1, 10, 1000, 100000)) +
+  scale_x_continuous(trans = "log10", labels = scientific_10,
+                     limits = c(0.00001, 100001),
+                     breaks = c(0, 0.00001, 0.001, 0.1, 10, 1000, 100000)) +
+  theme_standard
+
+ggsave("results/fig/Figure7b_log.png", device = "png", scale = 1,
+       width = 110, height = 85, units = "mm", dpi = 300)
+
+```
+
+Keep SNP sites that have > 100x more forward alternate reads than reverse alternate reads and > 100x more forward reverse reads than reverse alternate reads.
+
+# Figure 8: high read depth/qual
+
+```{r plot depth vs qual II}
+
+# depth
+depth <- read.table("data/BONNET/BONNET_minQ20minDP5meanDP10geno70ind50.DEPTH",
+                    col.names = "depth")
+
+# quality score
+qual <- read.table("data/BONNET/BONNET_minQ20minDP5meanDP10geno70ind50.QUAL",
+                   col.names = c("locus", "pos", "qual"))
+
+# mean depth
+mean_depth <- mean(depth$depth)
+
+# standard deviation
+std <- sd(depth$depth)
+
+# mode
+mode <- Mode(depth$depth)
+
+cutoff <- sum(mean_depth + (2*std))
+
+# identify SNP sites with depth > mean depth + 1 standard deviation and quality score < 2x the depth at that site
+temp <- bind_cols(qual, depth) %>%
+  filter(depth > cutoff) %>%
+  filter(qual < 2*depth) %>%
+  select(locus)
+
+write.table(temp, "data/DRUM//DEPTH.lowQloci", col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+df <- bind_cols(qual, depth) %>%
+  mutate(qualcutoff = 2*depth)
+
+removeloc <- df %>%
+  filter(depth > cutoff) %>%
+  filter(qual < 2*depth)
+
+ggplot(df, aes(x = depth, y = qual)) +
+  geom_point(shape = 1) +
+  geom_point(data = removeloc, aes(x = depth, y = qual), shape = 1, color = "red") +
+  geom_line(data = df, aes(x = depth, y = qualcutoff), color = "darkblue",  linetype = "dashed", size = 1) +
+  geom_vline(xintercept = cutoff, color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "total depth per locus", y = "SNP quality per locus") +
+  scale_x_continuous() +
+  theme_standard
+
+svg("results/fig/Figure8.svg", width = 8, height = 4)
+
+ggplot(df, aes(x = depth, y = qual)) +
+  geom_point(shape = 1) +
+  geom_point(data = removeloc, aes(x = depth, y = qual), shape = 1, color = "red") +
+  geom_line(data = df, aes(x = depth, y = qualcutoff), color = "darkblue",  linetype = "dashed", size = 1) +
+  geom_vline(xintercept = cutoff, color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "total depth per locus", y = "SNP quality per locus") +
+  scale_x_continuous() +
+  theme_standard
+
+dev.off()
+
+```

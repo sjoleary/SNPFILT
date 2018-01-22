@@ -1,0 +1,3007 @@
+---
+title: "SNP FILTERING"
+output:
+  html_document:
+    toc: yes
+  html_notebook:
+    code_folding: hide
+    df_print: paged
+    highlight: kate
+    theme: yeti
+    toc: yes
+---
+
+```{r load libraries, message=FALSE, warning=FALSE}
+
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+
+source("scr/libraries.R")
+source("scr/ggplot.R")
+source("scr/VCFfilterstats.R")
+source("scr/xtrafunctions.R")
+
+```
+
+# Bonnethead sharks
+
+## Raw data stats
+
+### Query stats
+
+Query raw stats using vcftools.
+
+```{bash}
+
+# depth indv/locus
+vcftools --vcf data/BONNET//TotalRawSNPs.vcf --out results/BONNET_raw --depth
+vcftools --vcf data/BONNET//TotalRawSNPs.vcf --out results/BONNET_raw --site-mean-depth
+vcftools --vcf data/BONNET//TotalRawSNPs.vcf --out results/BONNET_raw --geno-depth
+
+# missing data indv/locus
+vcftools --vcf data/BONNET//TotalRawSNPs.vcf --out results/BONNET_raw --missing-indv
+vcftools --vcf data/BONNET//TotalRawSNPs.vcf --out results/BONNET_raw --missing-site
+
+# allele freq/indv freq buden
+vcftools --vcf data/BONNET//TotalRawSNPs.vcf --out results/BONNET_raw --indv-freq-burden
+vcftools --vcf data/BONNET//TotalRawSNPs.vcf --out results/BONNET_raw --freq2
+vcftools --vcf data/BONNET//TotalRawSNPs.vcf --out results/BONNET_raw --singletons
+vcftools --vcf data/BONNET//TotalRawSNPs.vcf --out results/BONNET_raw --012
+
+# heterozygosity per individual
+vcftools --vcf data/BONNET//TotalRawSNPs.vcf --out results/BONNET_raw --het
+
+# SNP call quality
+vcftools --vcf data/BONNET//TotalRawSNPs.vcf --out results/BONNET_raw --site-quality
+
+```
+
+### Visualize
+
+```{r stats raw, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+# load stats files ----
+ind_stats_raw <- read.ind.stats(dir = "results", vcf = "BONNET_raw")
+
+loc_stats_raw <- read.loc.stats(dir = "results", vcf = "BONNET_raw")
+
+# plot missing data per indv ----
+p1 <- ggplot(ind_stats_raw, aes(x = MISS_BONNET_raw)) +
+  geom_histogram(binwidth = .01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(MISS_BONNET_raw, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "missing data per indv") +
+  theme_standard
+
+# plot Fis per indv ----
+p2 <- ggplot(ind_stats_raw, aes(x = Fis_BONNET_raw)) +
+  geom_histogram(binwidth = .01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(Fis_BONNET_raw, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv") +
+  theme_standard
+
+# plot read depth per indv ----
+p3 <- ggplot(ind_stats_raw, aes(x = MEAN_DEPTH_BONNET_raw)) +
+  geom_histogram(binwidth = 10, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(MEAN_DEPTH_BONNET_raw, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean read depth per indv") +
+  theme_standard
+
+# plot depth vs missing ----
+p4 <- ggplot(ind_stats_raw, aes(x = MEAN_DEPTH_BONNET_raw, y = MISS_BONNET_raw)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(MEAN_DEPTH_BONNET_raw, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(MISS_BONNET_raw, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per indv", y = "% missing data") +
+  theme_standard
+
+# plot Fis vs missing data per indv ----
+p5 <- ggplot(ind_stats_raw, aes(x = Fis_BONNET_raw, y = MISS_BONNET_raw)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(Fis_BONNET_raw, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(MISS_BONNET_raw, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv", y = "% missing data") +
+  theme_standard
+
+# plot Fis vs mean depth per indv ----
+p6 <- ggplot(ind_stats_raw, aes(x = Fis_BONNET_raw, y = MEAN_DEPTH_BONNET_raw)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(Fis_BONNET_raw, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(MEAN_DEPTH_BONNET_raw, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv", y = "mean depth per indv") +
+  theme_standard
+
+# plot distribution missing data per locus ----
+p7 <- ggplot(loc_stats_raw, aes(x = MISS_BONNET_raw)) +
+  geom_histogram(binwidth = 0.01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(MISS_BONNET_raw, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.1),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "% missing data per locus") +
+  theme_standard
+
+# plot distribution mean read depth ----
+p8 <- ggplot(loc_stats_raw, aes(x = MEAN_DEPTH_BONNET_raw)) +
+  geom_histogram(binwidth = 5, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(MEAN_DEPTH_BONNET_raw, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean read depth per locus") +
+  theme_standard
+
+# plot read depth vs missing data ----
+p9 <- ggplot(loc_stats_raw, aes(x = MEAN_DEPTH_BONNET_raw, y = MISS_BONNET_raw)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(MEAN_DEPTH_BONNET_raw, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(MISS_BONNET_raw, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.1),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per locus", y = "% missing data") +
+  theme_standard
+
+# plot no of SNPs per locus ----
+p10 <- loc_stats_raw %>%
+  count(CHR) %>%
+  ggplot(aes(x = n)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "grey95") + 
+  labs(x = "number of SNPs per locus") +
+  theme_standard
+
+temp <- loc_stats_raw %>%
+  count(CHR)
+
+# plot number of SNPs per contig vs. mean depth ----
+p11 <- left_join(temp, loc_stats_raw) %>%
+  ggplot() +
+  geom_point(aes(x = n, y = MEAN_DEPTH_BONNET_raw)) +
+  labs(x = "number of SNPs per contig", y = "mean depth") +
+  theme_standard
+
+# plot depth vs SNP quality ----
+site_qual <- read.table("results/BONNET_raw.lqual", 
+                        header = TRUE, stringsAsFactors = FALSE) %>%
+  mutate(PROB = 10^(-QUAL/10))
+
+temp <- data.frame(loc_stats_raw$MEAN_DEPTH_BONNET_raw, site_qual$QUAL) %>%
+  rename(depth = loc_stats_raw.MEAN_DEPTH_BONNET_raw, qual = site_qual.QUAL)
+
+p12 <- ggplot(temp, aes(x = depth, y = qual)) +
+  geom_point(size = 1) +
+  geom_vline(aes(xintercept = mean(depth, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(qual, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per locus", y = "SNP quality") +
+  theme_standard
+
+m1 <- multiplot(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, cols=2)
+
+```
+
+Data set contains `r nrow(ind_stats_raw)` individuals and `r nrow(loc_stats_raw)` loci.
+
+
+## Filtering scheme 1
+
+### Step 1: Remove loci with genotype call rate < 95%:
+
+```{bash}
+
+vcftools --vcf data/BONNET/TotalRawSNPs.vcf --out data/BONNET//BONNET_geno95 --max-missing 0.95 --recode --recode-INFO-all
+
+```
+
+Decompose variants and retain only SNPs.
+
+```{bash}
+
+vcfallelicprimitives data/BONNET/BONNET_geno95.recode.vcf --keep-info --keep-geno > data/BONNET/BONNET_SNPs.vcf
+vcftools --vcf data/BONNET/BONNET_SNPs.vcf --out data/BONNET/BONNET_geno95SNPs --remove-indels --recode --recode-INFO-all
+
+
+vcftools --vcf data/BONNET/BONNET_geno95SNPs.recode.vcf --out results/BONNET_geno95SNPs --missing-indv
+
+```
+
+### Step 2: Identify individuals with > 25% missing data:
+
+```{r}
+
+imissing <- read.table("results/BONNET_geno95SNPs.imiss",
+                       header = TRUE, stringsAsFactors = FALSE)
+
+LQ_indv <- imissing %>%
+  filter(F_MISS > 0.25) %>%
+  select(INDV)
+
+ggplot(imissing, aes(x = F_MISS)) +
+  geom_histogram(binwidth = .01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(F_MISS, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.25),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "missing data per indv") +
+  scale_x_continuous(limits = c(0, 1)) +
+  theme_standard
+
+write.table(LQ_indv, "data/BONNET//LQ_Ind_FIL-1", 
+            col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+```
+
+Remove flagged individuals:
+
+```{bash}
+
+vcftools --vcf data/BONNET/BONNET_geno95SNPs.recode.vcf --out data/BONNET//BONNET_FIL-1 --remove data/BONNET//LQ_Ind_FIL-1 --recode --recode-INFO-all
+
+# depth indv/locus
+vcftools --vcf data/BONNET/BONNET_FIL-1.recode.vcf --out results/BONNET_FIL-1 --depth
+vcftools --vcf data/BONNET/BONNET_FIL-1.recode.vcf --out results/BONNET_FIL-1 --site-mean-depth
+vcftools --vcf data/BONNET/BONNET_FIL-1.recode.vcf --out results/BONNET_FIL-1 --geno-depth
+
+# missing data indv/locus
+vcftools --vcf data/BONNET/BONNET_FIL-1.recode.vcf --out results/BONNET_FIL-1 --missing-indv
+vcftools --vcf data/BONNET/BONNET_FIL-1.recode.vcf --out results/BONNET_FIL-1 --missing-site
+
+# allele freq/indv freq buden
+vcftools --vcf data/BONNET/BONNET_FIL-1.recode.vcf --out results/BONNET_FIL-1 --indv-freq-burden
+vcftools --vcf data/BONNET/BONNET_FIL-1.recode.vcf --out results/BONNET_FIL-1 --freq2
+vcftools --vcf data/BONNET/BONNET_FIL-1.recode.vcf --out results/BONNET_FIL-1 --singletons
+vcftools --vcf data/BONNET/BONNET_FIL-1.recode.vcf --out results/BONNET_FIL-1 --012
+
+# heterozygosity per individual
+vcftools --vcf data/BONNET/BONNET_FIL-1.recode.vcf --out results/BONNET_FIL-1 --het
+
+# SNP call quality
+vcftools --vcf data/BONNET/BONNET_FIL-1.recode.vcf --out results/BONNET_FIL-1 --site-quality
+
+```
+
+### Plot stats for filtered data set
+
+```{r stats FIL 1, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+# load stats files ----
+ind_stats_FIL_1 <- read.ind.stats(dir = "results", vcf = "BONNET_FIL-1")
+
+loc_stats_FIL_1 <- read.loc.stats(dir = "results", vcf = "BONNET_FIL-1")
+
+# plot missing data per indv ----
+p1 <- ggplot(ind_stats_FIL_1, aes(x = `MISS_BONNET_FIL-1`)) +
+  geom_histogram(binwidth = .01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MISS_BONNET_FIL-1`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "missing data per indv") +
+  theme_standard
+
+# plot Fis per indv ----
+p2 <- ggplot(ind_stats_FIL_1, aes(x = `Fis_BONNET_FIL-1`)) +
+  geom_histogram(binwidth = .01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_FIL-1`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv") +
+  theme_standard
+
+# plot read depth per indv ----
+p3 <- ggplot(ind_stats_FIL_1, aes(x = `MEAN_DEPTH_BONNET_FIL-1`)) +
+  geom_histogram(binwidth = 10, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-1`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean read depth per indv") +
+  theme_standard
+
+# plot depth vs missing ----
+p4 <- ggplot(ind_stats_FIL_1, aes(x = `MEAN_DEPTH_BONNET_FIL-1`, y = `MISS_BONNET_FIL-1`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-1`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_FIL-1`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per indv", y = "% missing data") +
+  theme_standard
+
+# plot Fis vs missing data per indv ----
+p5 <- ggplot(ind_stats_FIL_1, aes(x = `Fis_BONNET_FIL-1`, y = `MISS_BONNET_FIL-1`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_FIL-1`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_FIL-1`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv", y = "% missing data") +
+  theme_standard
+
+# plot Fis vs mean depth per indv ----
+p6 <- ggplot(ind_stats_FIL_1, aes(x = `Fis_BONNET_FIL-1`, y = `MEAN_DEPTH_BONNET_FIL-1`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_FIL-1`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MEAN_DEPTH_BONNET_FIL-1`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv", y = "mean depth per indv") +
+  theme_standard
+
+# plot distribution missing data per locus ----
+p7 <- ggplot(loc_stats_FIL_1, aes(x = `MISS_BONNET_FIL-1`)) +
+  geom_histogram(binwidth = 0.01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MISS_BONNET_FIL-1`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.1),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "% missing data per locus") +
+  theme_standard
+
+# plot distribution mean read depth ----
+p8 <- ggplot(loc_stats_FIL_1, aes(x = `MEAN_DEPTH_BONNET_FIL-1`)) +
+  geom_histogram(binwidth = 5, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-1`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean read depth per locus") +
+  theme_standard
+
+# plot read depth vs missing data ----
+p9 <- ggplot(loc_stats_FIL_1, aes(x = `MEAN_DEPTH_BONNET_FIL-1`, y = `MISS_BONNET_FIL-1`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-1`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_FIL-1`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.1),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per locus", y = "% missing data") +
+  theme_standard
+
+# plot no of SNPs per locus ----
+p10 <- loc_stats_FIL_1 %>%
+  count(CHR) %>%
+  ggplot(aes(x = n)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "grey95") + 
+  labs(x = "number of SNPs per locus") +
+  theme_standard
+
+temp <- loc_stats_FIL_1 %>%
+  count(CHR)
+
+# plot number of SNPs per contig vs. mean depth ----
+p11 <- left_join(temp, loc_stats_FIL_1) %>%
+  ggplot() +
+  geom_point(aes(x = n, y = `MEAN_DEPTH_BONNET_FIL-1`)) +
+  labs(x = "number of SNPs per contig", y = "mean depth") +
+  theme_standard
+
+# plot depth vs SNP quality ----
+site_qual <- read.table("results/BONNET_FIL-1.lqual", 
+                        header = TRUE, stringsAsFactors = FALSE) %>%
+  mutate(PROB = 10^(-QUAL/10))
+
+temp <- data.frame(loc_stats_FIL_1$`MEAN_DEPTH_BONNET_FIL-1`, site_qual$QUAL) %>%
+  rename(depth = loc_stats_FIL_1..MEAN_DEPTH_BONNET_FIL.1., qual = site_qual.QUAL)
+
+p12 <- ggplot(temp, aes(x = depth, y = qual)) +
+  geom_point(size = 1) +
+  geom_vline(aes(xintercept = mean(depth, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(qual, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per locus", y = "SNP quality") +
+  theme_standard
+
+m2 <- multiplot(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, cols=2)
+
+```
+
+Data set contains `r nrow(ind_stats_FIL_1)` individuals and `r nrow(loc_stats_FIL_1)` loci.
+
+
+## Filtering scheme 2
+
+### Step 1: Identify individuals with > 25% missing data:
+
+```{r, fig.height=4, fig.width=5}
+
+imissing <- read.table("results/BONNET_raw.imiss",
+                       header = TRUE, stringsAsFactors = FALSE)
+
+ggplot(imissing, aes(x = F_MISS)) +
+  geom_histogram(binwidth = .01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(F_MISS, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.25),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  scale_x_continuous(limits = c(0, 1)) +
+  labs(x = "missing data per indv") +
+  theme_standard
+
+LQ_indv <- imissing %>%
+  filter(F_MISS > 0.25) %>%
+  select(INDV)
+
+write.table(LQ_indv, "data/BONNET//LQ_Ind_FIL-2", 
+            col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+```
+
+Remove flagged individuals:
+
+```{bash}
+
+vcftools --vcf data/BONNET//TotalRawSNPs.vcf --out data/BONNET//BONNET_miss25 --remove data/BONNET//LQ_Ind_FIL-2 --recode --recode-INFO-all
+
+```
+
+### Step 2: Remove loci with genotype call rate < 95%, decompose variants and retain only SNPs.
+
+```{bash}
+
+vcftools --vcf data/BONNET/BONNET_miss25.recode.vcf --out data/BONNET//BONNET_miss25geno95 --max-missing 0.95 --recode --recode-INFO-all
+
+vcfallelicprimitives data/BONNET//BONNET_miss25geno95.recode.vcf --keep-info --keep-geno > data/BONNET//BONNET_miss25geno95SNPs.vcf
+
+vcftools --vcf data/BONNET/BONNET_miss25geno95SNPs.vcf --out data/BONNET//BONNET_FIL-2 --remove-indels --recode --recode-INFO-all
+
+# depth indv/locus
+vcftools --vcf data/BONNET/BONNET_FIL-2.recode.vcf --out results/BONNET_FIL-2 --depth
+vcftools --vcf data/BONNET/BONNET_FIL-2.recode.vcf --out results/BONNET_FIL-2 --site-mean-depth
+vcftools --vcf data/BONNET/BONNET_FIL-2.recode.vcf --out results/BONNET_FIL-2 --geno-depth
+
+# missing data indv/locus
+vcftools --vcf data/BONNET/BONNET_FIL-2.recode.vcf --out results/BONNET_FIL-2 --missing-indv
+vcftools --vcf data/BONNET/BONNET_FIL-2.recode.vcf --out results/BONNET_FIL-2 --missing-site
+
+# allele freq/indv freq buden
+vcftools --vcf data/BONNET/BONNET_FIL-2.recode.vcf --out results/BONNET_FIL-2 --indv-freq-burden
+vcftools --vcf data/BONNET/BONNET_FIL-2.recode.vcf --out results/BONNET_FIL-2 --freq2
+vcftools --vcf data/BONNET/BONNET_FIL-2.recode.vcf --out results/BONNET_FIL-2 --singletons
+vcftools --vcf data/BONNET/BONNET_FIL-2.recode.vcf --out results/BONNET_FIL-2 --012
+
+# heterozygosity per individual
+vcftools --vcf data/BONNET/BONNET_FIL-2.recode.vcf --out results/BONNET_FIL-2 --het
+
+# SNP call quality
+vcftools --vcf data/BONNET/BONNET_FIL-2.recode.vcf --out results/BONNET_FIL-2 --site-quality
+
+```
+
+### Plot stats for filtered data set
+
+```{r stats FIL 2, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+# load stats files ----
+ind_stats_FIL_2 <- read.ind.stats(dir = "results", vcf = "BONNET_FIL-2")
+
+loc_stats_FIL_2 <- read.loc.stats(dir = "results", vcf = "BONNET_FIL-2")
+
+# plot missing data per indv ----
+p1 <- ggplot(ind_stats_FIL_2, aes(x = `MISS_BONNET_FIL-2`)) +
+  geom_histogram(binwidth = .01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MISS_BONNET_FIL-2`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "missing data per indv") +
+  theme_standard
+
+# plot Fis per indv ----
+p2 <- ggplot(ind_stats_FIL_2, aes(x = `Fis_BONNET_FIL-2`)) +
+  geom_histogram(binwidth = .01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_FIL-2`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv") +
+  theme_standard
+
+# plot read depth per indv ----
+p3 <- ggplot(ind_stats_FIL_2, aes(x = `MEAN_DEPTH_BONNET_FIL-2`)) +
+  geom_histogram(binwidth = 10, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-2`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean read depth per indv") +
+  theme_standard
+
+# plot depth vs missing ----
+p4 <- ggplot(ind_stats_FIL_2, aes(x = `MEAN_DEPTH_BONNET_FIL-2`, y = `MISS_BONNET_FIL-2`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-2`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_FIL-2`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per indv", y = "% missing data") +
+  theme_standard
+
+# plot Fis vs missing data per indv ----
+p5 <- ggplot(ind_stats_FIL_2, aes(x = `Fis_BONNET_FIL-2`, y = `MISS_BONNET_FIL-2`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_FIL-2`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_FIL-2`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv", y = "% missing data") +
+  theme_standard
+
+# plot Fis vs mean depth per indv ----
+p6 <- ggplot(ind_stats_FIL_2, aes(x = `Fis_BONNET_FIL-2`, y = `MEAN_DEPTH_BONNET_FIL-2`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_FIL-2`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MEAN_DEPTH_BONNET_FIL-2`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv", y = "mean depth per indv") +
+  theme_standard
+
+# plot distribution missing data per locus ----
+p7 <- ggplot(loc_stats_FIL_2, aes(x = `MISS_BONNET_FIL-2`)) +
+  geom_histogram(binwidth = 0.01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MISS_BONNET_FIL-2`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.1),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "% missing data per locus") +
+  theme_standard
+
+# plot distribution mean read depth ----
+p8 <- ggplot(loc_stats_FIL_2, aes(x = `MEAN_DEPTH_BONNET_FIL-2`)) +
+  geom_histogram(binwidth = 5, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-2`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean read depth per locus") +
+  theme_standard
+
+# plot read depth vs missing data ----
+p9 <- ggplot(loc_stats_FIL_2, aes(x = `MEAN_DEPTH_BONNET_FIL-2`, y = `MISS_BONNET_FIL-2`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-2`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_FIL-2`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.1),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per locus", y = "% missing data") +
+  theme_standard
+
+# plot no of SNPs per locus ----
+p10 <- loc_stats_FIL_2 %>%
+  count(CHR) %>%
+  ggplot(aes(x = n)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "grey95") + 
+  labs(x = "number of SNPs per locus") +
+  theme_standard
+
+temp <- loc_stats_FIL_2 %>%
+  count(CHR)
+
+# plot number of SNPs per contig vs. mean depth ----
+p11 <- left_join(temp, loc_stats_FIL_2) %>%
+  ggplot() +
+  geom_point(aes(x = n, y = `MEAN_DEPTH_BONNET_FIL-2`)) +
+  labs(x = "number of SNPs per contig", y = "mean depth") +
+  theme_standard
+
+# plot depth vs SNP quality ----
+site_qual <- read.table("results/BONNET_FIL-2.lqual", 
+                        header = TRUE, stringsAsFactors = FALSE) %>%
+  mutate(PROB = 10^(-QUAL/10))
+
+temp <- data.frame(loc_stats_FIL_2$`MEAN_DEPTH_BONNET_FIL-2`, site_qual$QUAL) %>%
+  rename(depth = loc_stats_FIL_2..MEAN_DEPTH_BONNET_FIL.2., qual = site_qual.QUAL)
+
+p12 <- ggplot(temp, aes(x = depth, y = qual)) +
+  geom_point(size = 1) +
+  geom_vline(aes(xintercept = mean(depth, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(qual, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per locus", y = "SNP quality") +
+  theme_standard
+
+m3 <- multiplot(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, cols=2)
+
+```
+
+Data set contains `r nrow(ind_stats_FIL_2)` individuals and `r nrow(loc_stats_FIL_2)` loci.
+
+
+## Filtering scheme 3
+
+### Step 1: Filter loci
+
+Filter loci with minimum SNP call quality per locus < 20, minimum genotype depth < 5, then remove loci with mean minimum depth < 15, filter loci with minor allele count < 3, finally apply genotype call rate > 95%.
+
+```{bash}
+
+##
+vcftools --vcf data/BONNET/TotalRawSNPs.vcf --out data/BONNET/BONNET_minQ20minDP5 --minQ 20 --minDP 5 --recode --recode-INFO-all
+
+# depth indv/locus
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5.recode.vcf --out results/BONNET_minQ20minDP5 --depth
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5.recode.vcf --out results/BONNET_minQ20minDP5 --site-mean-depth
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5.recode.vcf --out results/BONNET_minQ20minDP5 --geno-depth
+
+# missing data indv/locus
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5.recode.vcf --out results/BONNET_minQ20minDP5 --missing-indv
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5.recode.vcf --out results/BONNET_minQ20minDP5 --missing-site
+
+# allele freq/indv freq buden
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5.recode.vcf --out results/BONNET_minQ20minDP5 --indv-freq-burden
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5.recode.vcf --out results/BONNET_minQ20minDP5 --freq2
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5.recode.vcf --out results/BONNET_minQ20minDP5 --singletons
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5.recode.vcf --out results/BONNET_minQ20minDP5 --012
+
+# heterozygosity per individual
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5.recode.vcf --out results/BONNET_minQ20minDP5 --het
+
+# SNP call quality
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5.recode.vcf--out results/BONNET_minQ20minDP5 --site-quality
+
+
+##
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5.recode.vcf --out data/BONNET//BONNET_minQ20minDP5meanDP10 --min-meanDP 15 --recode --recode-INFO-all
+
+# depth indv/locus
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10.recode.vcf --out results/BONNET_minQ20minDP5meanDP10 --depth
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10.recode.vcf --out results/BONNET_minQ20minDP5meanDP10 --site-mean-depth
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10.recode.vcf --out results/BONNET_minQ20minDP5meanDP10 --geno-depth
+
+# missing data indv/locus
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10.recode.vcf --out results/BONNET_minQ20minDP5meanDP10 --missing-indv
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10.recode.vcf --out results/BONNET_minQ20minDP5meanDP10 --missing-site
+
+# allele freq/indv freq buden
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10.recode.vcf --out results/BONNET_minQ20minDP5meanDP10 --indv-freq-burden
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10.recode.vcf --out results/BONNET_minQ20minDP5meanDP10 --freq2
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10.recode.vcf --out results/BONNET_minQ20minDP5meanDP10 --singletons
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10.recode.vcf --out results/BONNET_minQ20minDP5meanDP10 --012
+
+# heterozygosity per individual
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10.recode.vcf --out results/BONNET_minQ20minDP5meanDP10 --het
+
+# SNP call quality
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10.recode.vcf --out results/BONNET_minQ20minDP5meanDP10 --site-quality
+
+
+##
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10.recode.vcf --out data/BONNET/BONNET_minQ20minDP5meanDP10mac3 --mac 3 --recode --recode-INFO-all
+
+# depth indv/locus
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3.recode.vcf --out results/BONNET_minQ20minDP5meanDP10mac3 --depth
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3.recode.vcf --out results/BONNET_minQ20minDP5meanDP10mac3 --site-mean-depth
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3.recode.vcf --out results/BONNET_minQ20minDP5meanDP10mac3 --geno-depth
+
+# missing data indv/locus
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3.recode.vcf --out results/BONNET_minQ20minDP5meanDP10mac3 --missing-indv
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3.recode.vcf --out results/BONNET_minQ20minDP5meanDP10mac3 --missing-site
+
+# allele freq/indv freq buden
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3.recode.vcf --out results/BONNET_minQ20minDP5meanDP10mac3 --indv-freq-burden
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3.recode.vcf --out results/BONNET_minQ20minDP5meanDP10mac3 --freq2
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3.recode.vcf --out results/BONNET_minQ20minDP5meanDP10mac3 --singletons
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3.recode.vcf --out results/BONNET_minQ20minDP5meanDP10mac3 --012
+
+# heterozygosity per individual
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3.recode.vcf --out results/BONNET_minQ20minDP5meanDP10mac3 --het
+
+# SNP call quality
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3.recode.vcf --out results/BONNET_minQ20minDP5meanDP10mac3 --site-quality
+
+
+##
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3.recode.vcf --out data/BONNET/BONNET_minQ20minDP5meanDP10mac3geno95 --max-missing 0.95 --recode --recode-INFO-all
+
+# depth indv/locus
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3geno95.recode.vcf --out results/BONNET_minQ20minDP5meanDP10mac3geno95 --depth
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3geno95.recode.vcf --out results/BONNET_minQ20minDP5meanDP10mac3geno95 --site-mean-depth
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3geno95.recode.vcf --out results/BONNET_minQ20minDP5meanDP10mac3geno95 --geno-depth
+
+# missing data indv/locus
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3geno95.recode.vcf --out results/BONNET_minQ20minDP5meanDP10mac3geno95 --missing-indv
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3geno95.recode.vcf --out results/BONNET_minQ20minDP5meanDP10mac3geno95 --missing-site
+
+# allele freq/indv freq buden
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3geno95.recode.vcf --out results/BONNET_minQ20minDP5meanDP10mac3geno95 --indv-freq-burden
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3geno95.recode.vcf --out results/BONNET_minQ20minDP5meanDP10mac3geno95 --freq2
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3geno95.recode.vcf --out results/BONNET_minQ20minDP5meanDP10mac3geno95 --singletons
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3geno95.recode.vcf --out results/BONNET_minQ20minDP5meanDP10mac3geno95 --012
+
+# heterozygosity per individual
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3geno95.recode.vcf --out results/BONNET_minQ20minDP5meanDP10mac3geno95 --het
+
+# SNP call quality
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3geno95.recode.vcf --out results/BONNET_minQ20minDP5meanDP10mac3geno95 --site-quality
+
+```
+
+Decompose variants and retain only SNPs.
+
+```{bash}
+
+vcfallelicprimitives data/BONNET/BONNET_minQ20minDP5meanDP10mac3geno95.recode.vcf --keep-info --keep-geno > data/BONNET/SNPs.vcf
+
+vcftools --vcf data/BONNET/SNPs.vcf --out data/BONNET/BONNET_minQ20minDP5meanDP10mac3geno95.SNPs --remove-indels --recode --recode-INFO-all
+
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3geno95.SNPs --out results/BONNET_minQ20minDP5meanDP10mac3geno95.SNPs  --missing-indv
+
+```
+
+### Step 2: Identify individuals with > 25% missing data:
+
+```{r}
+
+imissing <- read.table("results/BONNET_minQ20minDP5meanDP10mac3geno95.imiss",
+                       header = TRUE, stringsAsFactors = FALSE)
+
+ggplot(imissing, aes(x = F_MISS)) +
+  geom_histogram(binwidth = .05, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(F_MISS, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.25),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  scale_x_continuous(limits = c(0, 1)) +
+  labs(x = "missing data per indv") +
+  theme_standard
+
+LQ_indv <- imissing %>%
+  filter(F_MISS > 0.25) %>%
+  select(INDV)
+
+write.table(LQ_indv, "data/BONNET//LQ_Ind_FIL-3", 
+            col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+```
+
+Remove flagged individuals:
+
+```{bash}
+
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10mac3geno95.recode.vcf --out data/BONNET/BONNET_FIL-3 --remove data/BONNET/LQ_Ind_FIL-3 --recode --recode-INFO-all
+
+# depth indv/locus
+vcftools --vcf data/BONNET/BONNET_FIL-3.recode.vcf --out results/BONNET_FIL-3 --depth
+vcftools --vcf data/BONNET/BONNET_FIL-3.recode.vcf --out results/BONNET_FIL-3 --site-mean-depth
+vcftools --vcf data/BONNET/BONNET_FIL-3.recode.vcf --out results/BONNET_FIL-3 --geno-depth
+
+# missing data indv/locus
+vcftools --vcf data/BONNET/BONNET_FIL-3.recode.vcf --out results/BONNET_FIL-3 --missing-indv
+vcftools --vcf data/BONNET/BONNET_FIL-3.recode.vcf --out results/BONNET_FIL-3 --missing-site
+
+# allele freq/indv freq buden
+vcftools --vcf data/BONNET/BONNET_FIL-3.recode.vcf --out results/BONNET_FIL-3 --indv-freq-burden
+vcftools --vcf data/BONNET/BONNET_FIL-3.recode.vcf --out results/BONNET_FIL-3 --freq2
+vcftools --vcf data/BONNET/BONNET_FIL-3.recode.vcf --out results/BONNET_FIL-3 --singletons
+vcftools --vcf data/BONNET/BONNET_FIL-3.recode.vcf --out results/BONNET_FIL-3 --012
+
+# heterozygosity per individual
+vcftools --vcf data/BONNET/BONNET_FIL-3.recode.vcf --out results/BONNET_FIL-3 --het
+
+# SNP call quality
+vcftools --vcf data/BONNET/BONNET_FIL-3.recode.vcf --out results/BONNET_FIL-3 --site-quality
+
+```
+
+### Plot stats for filtered data set
+
+```{r stats FIL 3, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+# load stats files ----
+ind_stats_FIL_3 <- read.ind.stats(dir = "results", vcf = "BONNET_FIL-3")
+
+loc_stats_FIL_3 <- read.loc.stats(dir = "results", vcf = "BONNET_FIL-3")
+
+# plot missing data per indv ----
+p1 <- ggplot(ind_stats_FIL_3, aes(x = `MISS_BONNET_FIL-3`)) +
+  geom_histogram(binwidth = .01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MISS_BONNET_FIL-3`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "missing data per indv") +
+  theme_standard
+
+# plot Fis per indv ----
+p2 <- ggplot(ind_stats_FIL_3, aes(x = `Fis_BONNET_FIL-3`)) +
+  geom_histogram(binwidth = .01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_FIL-3`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv") +
+  theme_standard
+
+# plot read depth per indv ----
+p3 <- ggplot(ind_stats_FIL_3, aes(x = `MEAN_DEPTH_BONNET_FIL-3`)) +
+  geom_histogram(binwidth = 10, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-3`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean read depth per indv") +
+  theme_standard
+
+# plot depth vs missing ----
+p4 <- ggplot(ind_stats_FIL_3, aes(x = `MEAN_DEPTH_BONNET_FIL-3`, y = `MISS_BONNET_FIL-3`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-3`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_FIL-3`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per indv", y = "% missing data") +
+  theme_standard
+
+# plot Fis vs missing data per indv ----
+p5 <- ggplot(ind_stats_FIL_3, aes(x = `Fis_BONNET_FIL-3`, y = `MISS_BONNET_FIL-3`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_FIL-3`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_FIL-3`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv", y = "% missing data") +
+  theme_standard
+
+# plot Fis vs mean depth per indv ----
+p6 <- ggplot(ind_stats_FIL_3, aes(x = `Fis_BONNET_FIL-3`, y = `MEAN_DEPTH_BONNET_FIL-3`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_FIL-3`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MEAN_DEPTH_BONNET_FIL-3`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv", y = "mean depth per indv") +
+  theme_standard
+
+# plot distribution missing data per locus ----
+p7 <- ggplot(loc_stats_FIL_3, aes(x = `MISS_BONNET_FIL-3`)) +
+  geom_histogram(binwidth = 0.01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MISS_BONNET_FIL-3`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.1),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "% missing data per locus") +
+  theme_standard
+
+# plot distribution mean read depth ----
+p8 <- ggplot(loc_stats_FIL_3, aes(x = `MEAN_DEPTH_BONNET_FIL-3`)) +
+  geom_histogram(binwidth = 5, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-3`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean read depth per locus") +
+  theme_standard
+
+# plot read depth vs missing data ----
+p9 <- ggplot(loc_stats_FIL_3, aes(x = `MEAN_DEPTH_BONNET_FIL-3`, y = `MISS_BONNET_FIL-3`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-3`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_FIL-3`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.1),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per locus", y = "% missing data") +
+  theme_standard
+
+# plot no of SNPs per locus ----
+p10 <- loc_stats_FIL_3 %>%
+  count(CHR) %>%
+  ggplot(aes(x = n)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "grey95") + 
+  labs(x = "number of SNPs per locus") +
+  theme_standard
+
+temp <- loc_stats_FIL_3 %>%
+  count(CHR)
+
+# plot number of SNPs per contig vs. mean depth ----
+p11 <- left_join(temp, loc_stats_FIL_3) %>%
+  ggplot() +
+  geom_point(aes(x = n, y = `MEAN_DEPTH_BONNET_FIL-3`)) +
+  labs(x = "number of SNPs per contig", y = "mean depth") +
+  theme_standard
+
+# plot depth vs SNP quality ----
+site_qual <- read.table("results/BONNET_FIL-3.lqual", 
+                        header = TRUE, stringsAsFactors = FALSE) %>%
+  mutate(PROB = 10^(-QUAL/10))
+
+temp <- data.frame(loc_stats_FIL_3$`MEAN_DEPTH_BONNET_FIL-3`, site_qual$QUAL) %>%
+  rename(depth = loc_stats_FIL_3..MEAN_DEPTH_BONNET_FIL.3., qual = site_qual.QUAL)
+
+p12 <- ggplot(temp, aes(x = depth, y = qual)) +
+  geom_point(size = 1) +
+  geom_vline(aes(xintercept = mean(depth, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(qual, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per locus", y = "SNP quality") +
+  theme_standard
+
+m4 <- multiplot(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, cols=2)
+
+```
+
+Data set contains `r nrow(ind_stats_FIL_3)` individuals and `r nrow(loc_stats_FIL_3)` loci.
+
+## Filtering scheme 4
+
+### Step 1: Filter LQ loci
+
+Remove SNPs with quality score < 20, minor allele count < 3, minimum depth per genotype < 5, minimum mean depth < 15, mac < 3. 
+
+Then remove loci with genotype call rate < 50%.
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20minDP5meanDP10mac3.recode.vcf --out data/BONNET//BONNET_minQ20minDP5meanDP10mac3geno50 --max-missing 0.5 --recode --recode-INFO-all
+
+vcftools --vcf data/BONNET//BONNET_minQ20minDP5meanDP10mac3geno50.recode.vcf --out results/BONNET_it1 --missing-indv
+
+```
+
+### Step 2: Missing data loci/indv
+
+Identify individuals with > 90% missing data
+
+```{r}
+
+imiss <- read.table("results/BONNET_it1.imiss", 
+                    header = TRUE, stringsAsFactors = FALSE)
+
+ggplot(imiss, aes(x = F_MISS)) +
+  geom_histogram(binwidth = 0.05, color = "black", fill = "grey75") +
+  geom_vline(xintercept = .9, color = "darkblue", linetype = "dashed") +
+  scale_x_continuous(limits = c(0, 1)) +
+  theme_standard
+
+LQ_indv <- imiss %>%
+  filter(F_MISS > 0.9) %>%
+  select(INDV)
+
+write.table(LQ_indv, "data/BONNET//LQ_Ind_it1a",
+            col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+```
+
+Remove flagged individuals
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20minDP5meanDP10mac3geno50.recode.vcf --out data/BONNET//BONNET_minQ20minDP5meanDP10mac3geno50ind90 --remove data/BONNET//LQ_Ind_it1a --recode --recode-INFO-all
+
+```
+
+Remove loci with genotype call rate < 60%.
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20minDP5meanDP10mac3geno50ind90.recode.vcf --out data/BONNET//BONNET_minQ20minDP5meanDP10mac3geno60ind90 --max-missing 0.6 --recode --recode-INFO-all
+
+vcftools --vcf data/BONNET//BONNET_minQ20minDP5meanDP10mac3geno60ind90.recode.vcf --out results/BONNET_it2 --missing-indv
+
+```
+
+Identify individuals with > 70% missing data
+
+```{r}
+
+imiss <- read.table("results/BONNET_it2.imiss", 
+                    header = TRUE, stringsAsFactors = FALSE)
+
+ggplot(imiss, aes(x = F_MISS)) +
+  geom_histogram(binwidth = 0.05, color = "black", fill = "grey75") +
+  geom_vline(xintercept = .7, color = "darkred", linetype = "dashed") +
+  scale_x_continuous(limits = c(0, 1)) +
+  theme_standard
+
+LQ_indv <- imiss %>%
+  filter(F_MISS > 0.7) %>%
+  select(INDV)
+
+write.table(LQ_indv, "data/BONNET//LQ_Ind_it2a",
+            col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+```
+
+Remove flagged individuals
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20minDP5meanDP10mac3geno60ind90.recode.vcf --out data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno60ind70 --remove data/BONNET//LQ_Ind_it2a --recode --recode-INFO-all
+
+```
+
+Remove loci with genotype call rate < 70%.
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno60ind70.recode.vcf --out data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno70ind70 --max-missing 0.7 --recode --recode-INFO-all
+
+vcftools --vcf data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno70ind70.recode.vcf --out results/BONNET_it3 --missing-indv
+
+```
+
+Identify individuals with > 50% missing data
+
+```{r}
+
+imiss <- read.table("results/BONNET_it3.imiss", 
+                    header = TRUE, stringsAsFactors = FALSE)
+
+ggplot(imiss, aes(x = F_MISS)) +
+  geom_histogram(binwidth = 0.05, color = "black", fill = "grey75") +
+  geom_vline(xintercept = .5, color = "darkred", linetype = "dashed") +
+  scale_x_continuous(limits = c(0, 1)) +
+  theme_standard
+
+LQ_indv <- imiss %>%
+  filter(F_MISS > 0.5) %>%
+  select(INDV)
+
+write.table(LQ_indv, "data/BONNET//LQ_Ind_it3a",
+            col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+```
+
+Remove flagged individuals
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno70ind70.recode.vcf --out data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno70ind50 --remove data/BONNET//LQ_Ind_it3a --recode --recode-INFO-all
+
+```
+
+Remove loci with genotype call rate < 80%.
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno70ind50.recode.vcf --out data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno80ind50 --max-missing 0.8 --recode --recode-INFO-all
+
+vcftools --vcf data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno80ind50.recode.vcf --out results/BONNET_it4 --missing-indv
+
+```
+
+Identify individuals with > 30% missing data
+
+```{r}
+
+imiss <- read.table("results/BONNET_it4.imiss", 
+                    header = TRUE, stringsAsFactors = FALSE)
+
+ggplot(imiss, aes(x = F_MISS)) +
+  geom_histogram(binwidth = 0.05, color = "black", fill = "grey75") +
+  geom_vline(xintercept = .3, color = "darkred", linetype = "dashed") +
+  scale_x_continuous(limits = c(0, 1)) +
+  theme_standard
+
+LQ_indv <- imiss %>%
+  filter(F_MISS > 0.3) %>%
+  select(INDV)
+
+write.table(LQ_indv, "data/BONNET//LQ_Ind_it4a",
+            col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+```
+
+Remove flagged individuals
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno80ind50.recode.vcf --out data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno80ind30 --remove data/BONNET//LQ_Ind_it4a --recode --recode-INFO-all
+
+```
+
+Remove loci with genotype call rate < 90%.
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno80ind30.recode.vcf --out data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno90ind30 --max-missing 0.9 --recode --recode-INFO-all
+
+vcftools --vcf data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno90ind30.recode.vcf --out results/BONNET_it5 --missing-indv
+
+```
+
+Identify individuals with > 25% missing data
+
+```{r}
+
+imiss <- read.table("results/BONNET_it5.imiss", 
+                    header = TRUE, stringsAsFactors = FALSE)
+
+ggplot(imiss, aes(x = F_MISS)) +
+  geom_histogram(binwidth = 0.05, color = "black", fill = "grey75") +
+  geom_vline(xintercept = .25, color = "darkred", linetype = "dashed") +
+  scale_x_continuous(limits = c(0, 1)) +
+  theme_standard
+
+LQ_indv <- imiss %>%
+  filter(F_MISS > 0.25) %>%
+  select(INDV)
+
+write.table(LQ_indv, "results/LQ_Ind_it5a",
+            col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+```
+
+Remove flagged individuals
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno90ind30.recode.vcf --out data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno90ind25 --remove results/LQ_Ind_it5a --recode --recode-INFO-all
+
+```
+
+Remove loci with genotype call rate < 95%; decompose variants and retain only SNPs
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno90ind25.recode.vcf --out data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno95ind25 --max-missing 0.95 --recode --recode-INFO-all
+
+vcfallelicprimitives data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno95ind25.recode.vcf --keep-info --keep-geno > data/BONNET//SNPs.vcf
+
+vcftools --vcf data/BONNET//SNPs.vcf --out data/BONNET//BONNET_FIL-4 --remove-indels --recode --recode-INFO-all
+
+# depth indv/locus
+vcftools --vcf data/BONNET//BONNET_FIL-4.recode.vcf --out results/BONNET_FIL-4 --depth
+vcftools --vcf data/BONNET//BONNET_FIL-4.recode.vcf --out results/BONNET_FIL-4 --site-mean-depth
+vcftools --vcf data/BONNET//BONNET_FIL-4.recode.vcf --out results/BONNET_FIL-4 --geno-depth
+
+# missing data indv/locus
+vcftools --vcf data/BONNET//BONNET_FIL-4.recode.vcf --out results/BONNET_FIL-4 --missing-indv
+vcftools --vcf data/BONNET//BONNET_FIL-4.recode.vcf --out results/BONNET_FIL-4 --missing-site
+
+# allele freq/indv freq buden
+vcftools --vcf data/BONNET//BONNET_FIL-4.recode.vcf --out results/BONNET_FIL-4 --indv-freq-burden
+vcftools --vcf data/BONNET//BONNET_FIL-4.recode.vcf --out results/BONNET_FIL-4 --freq2
+vcftools --vcf data/BONNET//BONNET_FIL-4.recode.vcf --out results/BONNET_FIL-4 --singletons
+vcftools --vcf data/BONNET//BONNET_FIL-4.recode.vcf --out results/BONNET_FIL-4 --012
+
+# heterozygosity per individual
+vcftools --vcf data/BONNET//BONNET_FIL-4.recode.vcf --out results/BONNET_FIL-4  --het
+
+# SNP call quality
+vcftools --vcf data/BONNET//BONNET_FIL-4.recode.vcf --out results/BONNET_FIL-4  --site-quality
+
+```
+
+### Plot stats for filtered data set
+
+```{r stats FIL 4, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+# load stats files ----
+ind_stats_FIL_4 <- read.ind.stats(dir = "results", vcf = "BONNET_FIL-4")
+
+loc_stats_FIL_4 <- read.loc.stats(dir = "results", vcf = "BONNET_FIL-4")
+
+# plot missing data per indv ----
+p1 <- ggplot(ind_stats_FIL_4, aes(x = `MISS_BONNET_FIL-4`)) +
+  geom_histogram(binwidth = .01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MISS_BONNET_FIL-4`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "missing data per indv") +
+  theme_standard
+
+# plot Fis per indv ----
+p2 <- ggplot(ind_stats_FIL_4, aes(x = `Fis_BONNET_FIL-4`)) +
+  geom_histogram(binwidth = .01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_FIL-4`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv") +
+  theme_standard
+
+# plot read depth per indv ----
+p3 <- ggplot(ind_stats_FIL_4, aes(x = `MEAN_DEPTH_BONNET_FIL-4`)) +
+  geom_histogram(binwidth = 10, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-4`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean read depth per indv") +
+  theme_standard
+
+# plot depth vs missing ----
+p4 <- ggplot(ind_stats_FIL_4, aes(x = `MEAN_DEPTH_BONNET_FIL-4`, y = `MISS_BONNET_FIL-4`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-4`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_FIL-4`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per indv", y = "% missing data") +
+  theme_standard
+
+# plot Fis vs missing data per indv ----
+p5 <- ggplot(ind_stats_FIL_4, aes(x = `Fis_BONNET_FIL-4`, y = `MISS_BONNET_FIL-4`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_FIL-4`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_FIL-4`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv", y = "% missing data") +
+  theme_standard
+
+# plot Fis vs mean depth per indv ----
+p6 <- ggplot(ind_stats_FIL_4, aes(x = `Fis_BONNET_FIL-4`, y = `MEAN_DEPTH_BONNET_FIL-4`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_FIL-4`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MEAN_DEPTH_BONNET_FIL-4`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv", y = "mean depth per indv") +
+  theme_standard
+
+# plot distribution missing data per locus ----
+p7 <- ggplot(loc_stats_FIL_4, aes(x = `MISS_BONNET_FIL-4`)) +
+  geom_histogram(binwidth = 0.01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MISS_BONNET_FIL-4`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.1),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "% missing data per locus") +
+  theme_standard
+
+# plot distribution mean read depth ----
+p8 <- ggplot(loc_stats_FIL_4, aes(x = `MEAN_DEPTH_BONNET_FIL-4`)) +
+  geom_histogram(binwidth = 5, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-4`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean read depth per locus") +
+  theme_standard
+
+# plot read depth vs missing data ----
+p9 <- ggplot(loc_stats_FIL_4, aes(x = `MEAN_DEPTH_BONNET_FIL-4`, y = `MISS_BONNET_FIL-4`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-4`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_FIL-4`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.1),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per locus", y = "% missing data") +
+  theme_standard
+
+# plot no of SNPs per locus ----
+p10 <- loc_stats_FIL_4 %>%
+  count(CHR) %>%
+  ggplot(aes(x = n)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "grey95") + 
+  labs(x = "number of SNPs per locus") +
+  theme_standard
+
+temp <- loc_stats_FIL_4 %>%
+  count(CHR)
+
+# plot number of SNPs per contig vs. mean depth ----
+p11 <- left_join(temp, loc_stats_FIL_4) %>%
+  ggplot() +
+  geom_point(aes(x = n, y = `MEAN_DEPTH_BONNET_FIL-4`)) +
+  labs(x = "number of SNPs per contig", y = "mean depth") +
+  theme_standard
+
+# plot depth vs SNP quality ----
+site_qual <- read.table("results/BONNET_FIL-4.lqual", 
+                        header = TRUE, stringsAsFactors = FALSE) %>%
+  mutate(PROB = 10^(-QUAL/10))
+
+temp <- data.frame(loc_stats_FIL_4$`MEAN_DEPTH_BONNET_FIL-4`, site_qual$QUAL) %>%
+  rename(depth = loc_stats_FIL_4..MEAN_DEPTH_BONNET_FIL.4., qual = site_qual.QUAL)
+
+p12 <- ggplot(temp, aes(x = depth, y = qual)) +
+  geom_point(size = 1) +
+  geom_vline(aes(xintercept = mean(depth, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(qual, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per locus", y = "SNP quality") +
+  theme_standard
+
+m5 <- multiplot(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, cols=2)
+
+```
+
+Data set contains `r nrow(ind_stats_FIL_4)` individuals and `r nrow(loc_stats_FIL_4)` loci.
+
+## Filtering scheme 5
+
+### Step 1: Filter LQ loci
+
+Remove SNPs with quality score < 20, minor allele count < 3, minimum depth per genotype < 5, minimum mean depth < 15, mac < 3. 
+
+### Step 2: Missing data indvidiuals/loci 
+
+Retain loci with genotype call rate > 70% and individuals with missing data < 50%.
+
+### Step 3: Info flag filtering
+
+#### Allele balance
+
+AB: Allele balance at heterozygous sites: a number between 0 and 1 representing the ratio of reads showing the reference allele to all reads, considering only reads from individuals called as heterozygous
+
+```{bash query INFO stats I, eval=FALSE, include=FALSE}
+
+cut -f8 BONNET_minQ20mac3minDP5meanDP10geno70ind70.recode.vcf | grep -oe "AB=[[:digit:]].[[:digit:]][[:digit:]][[:digit:]]" | sed -s 's/AB=//g' > BONNET_minQ20mac3minDP5meanDP10geno70ind50.AB
+
+# allele balance
+cut -f8 BONNET_minQ20mac3minDP5meanDP10geno70ind50.recode.vcf | grep -oe "AB=[[:digit:]].[[:digit:]][[:digit:]][[:digit:]]" | sed -s 's/AB=//g' > BONNET_minQ20mac3minDP5meanDP10geno70ind50.AB
+
+# site Depth
+cut -f8 BONNET_minQ20mac3minDP5meanDP10geno70ind50.recode.vcf | grep -oe "DP=[0-9]*" | sed -s 's/DP=//g' > BONNET_minQ20mac3minDP5meanDP10geno70ind50.DEPTH
+
+# quality score
+mawk '!/#/' BONNET_minQ20mac3minDP5meanDP10geno70ind50.recode.vcf | cut -f1,2,6 > BONNET_minQ20mac3minDP5meanDP10geno70ind50.QUAL
+
+# mapping quality
+cut -f8 BONNET_minQ20mac3minDP5meanDP10geno70ind50.recode.vcf | grep -oe "MQM=[0-9]*" | sed -s 's/MQM=//g' > BONNET_minQ20mac3minDP5meanDP10geno70ind50.MQM
+cut -f8 BONNET_minQ20mac3minDP5meanDP10geno70ind50.recode.vcf | grep -oe "MQMR=[0-9]*" | sed -s 's/MQMR=//g' > BONNET_minQ20mac3minDP5meanDP10geno70ind50.MQMR
+
+# strand balance
+cut -f8 BONNET_minQ20mac3minDP5meanDP10geno70ind50.recode.vcf | grep -oe "SAF=[0-9]*" | sed -s 's/SAF=//g' > BONNET_minQ20mac3minDP5meanDP10geno70ind50.SAF
+cut -f8 BONNET_minQ20mac3minDP5meanDP10geno70ind50.recode.vcf | grep -oe "SAR=[0-9]*" | sed -s 's/SAR=//g' > BONNET_minQ20mac3minDP5meanDP10geno70ind50.SAR
+cut -f8 BONNET_minQ20mac3minDP5meanDP10geno70ind50.recode.vcf | grep -oe "SRF=[0-9]*" | sed -s 's/SRF=//g' > BONNET_minQ20mac3minDP5meanDP10geno70ind50.SRF
+cut -f8 BONNET_minQ20mac3minDP5meanDP10geno70ind50.recode.vcf | grep -oe "SRR=[0-9]*" | sed -s 's/SRR=//g' > BONNET_minQ20mac3minDP5meanDP10geno70ind50.SRR
+
+```
+
+Allele balance is the ratio of reads for reference allele to all reads, considering only reads from individuals called as heterozygous. Values range from 0 - 1; allele balance (for real loci) should be approx. 0.5. Filter contigs SNPs for which the with allele balance < 0.25 and > 0.75.
+
+```{r plot AB}
+
+read.table("data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno70ind50.AB",
+           col.names = "AB", stringsAsFactors = FALSE) %>%
+  ggplot(aes(x = AB)) +
+  geom_histogram(binwidth = 0.01, color = "black", fill = "grey95") +
+  geom_vline(xintercept = 0.5, color = "red", linetype = "dashed") +
+  geom_vline(xintercept = 0.2, color = "darkblue", linetype = "dashed") +
+  geom_vline(xintercept = 0.8, color = "darkblue", linetype = "dashed") +
+  labs(x = "Allele balance (red BONNET)") +
+  theme_standard
+
+```
+
+Filter contigs with SNP calls with AB > 0.2, AB > 0.8; retain loci very close to 0 (retain loci that are fixed variants). Remove genotypes if the quality sum of the reference or alternate allele was 0.
+
+```{bash, eval=FALSE, include=FALSE}
+
+# this works... not sure why cant write to file in the folder
+vcffilter -s -f "AB > 0.2 & AB < 0.8 | AB < 0.01 | AB > 0.99" -s -g "QR > 0 | QA > 0"  BONNET_minQ20mac3minDP5meanDP10geno70ind50.recode.vcf >  BONNET_minQ20mac3minDP5meanDP10geno70ind50AB.recode.vcf 
+
+mawk '!/#/' BONNET_minQ20mac3minDP5meanDP10geno70ind50AB.recode.vcf | wc -l
+
+```
+
+Remaining SNPs: 29.801.
+
+#### Quality/depth ratio
+
+Compare quality/depth.
+
+```{r, fig.height=10, fig.width=8, message=FALSE, warning=FALSE}
+
+# depth
+depth <- read.table("data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno70ind50.DEPTH",
+                    col.names = "depth")
+
+# quality score
+qual <- read.table("data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno70ind50.QUAL",
+                   col.names = c("locus", "pos", "qual"))
+
+df <- bind_cols(qual, depth) %>%
+  mutate(ratio = qual/depth)
+
+ggplot(df, aes(x = ratio)) + 
+  geom_histogram(binwidth = 0.1, color = "black", fill = "grey95") +
+  geom_vline(xintercept = 0.2, color = "darkred", linetype = "dashed") +
+  geom_vline(xintercept = 0.5, color = "darkred", linetype = "dashed") +
+  labs(x = "ratio depth/quality (red BONNET)", y = "no. of loci") +
+  theme_standard
+
+```
+
+Remove loci with quality/depth ratio < 0.2
+
+```{bash}
+
+vcffilter -s -f "QUAL / DP > 0.2" BONNET_minQ20mac3minDP5meanDP10geno70ind50AB.recode.vcf > BONNET_minQ20mac3minDP5meanDP10geno70ind50ABQDPTH.recode.vcf
+
+mawk '!/#/' BONNET_minQ20mac3minDP5meanDP10geno70ind50ABQDPTH.recode.vcf | wc -l
+
+```
+
+Remaining SNPs: 28,570.
+
+#### ratio mapping quality
+
+Remove loci based on ratio of mapping quality for reference and alternate allele, i.e. sites that have a high discrepancy between the mapping qualities of two alleles.
+
+```{r plot map qual ratios}
+
+temp <- read.table("data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno70ind50.MQM", col.names = "MQM")
+
+mapqual <- read.table("data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno70ind50.MQMR", col.names = "MQMR")
+
+mapqual <- bind_cols(mapqual, temp) %>%
+  mutate(ratio = MQM/MQMR)
+
+filter <- mapqual %>%
+  filter(ratio < 0.25 | ratio > 1.75)
+
+ggplot(mapqual, aes(x = MQM, y = MQMR)) +
+  geom_point(shape = 1) + 
+  geom_abline(intercept = 0, slope = 1, size = 1, color = "red", linetype = "dashed") +
+  geom_abline(intercept = 0, slope = 4, size = 1, color = "darkblue", linetype = "dashed") +
+  geom_abline(intercept = 0, slope = 0.571, size = 1, color = "darkblue", linetype = "dashed") +
+  geom_point(data = filter, aes(x = MQM, y = MQMR), shape = 1, color = "red") +
+  scale_x_continuous(limits = c(0, 65)) + 
+  scale_y_continuous(limits = c(0, 65)) +
+  labs(x = "mean mapping quality alt allele (red BONNET)", y = "mean mapping quality ref allele ") +
+  theme_standard
+
+```
+
+Filter loci with mapping quality ratio < 0.25 and > 1.75.
+
+```{bash filter map qual ratio}
+
+vcffilter -s -f "MQM / MQMR > 0.25 & MQM / MQMR < 1.75" BONNET_minQ20mac3minDP5meanDP10geno70ind50ABQDPTH.recode.vcf > BONNET_minQ20mac3minDP5meanDP10geno70ind50ABQDPTHMQM.recode.vcf
+
+mawk '!/#/' BONNET_minQ20mac3minDP5meanDP10geno70ind50ABQDPTHMQM.recode.vcf | wc -l
+
+```
+
+Remaining SNPs: 28.132.
+
+#### Maximum depth & Quality
+
+Identify distribution of depth (based on original data set) to identify loci with excess coverage.
+
+Original number of individuals in data set is `r nrow(ind_stats_raw)` (INFO flags in filtered data set are are based on original number of individuals in data set).
+
+Calculate average depth and standard deviation:
+
+```{r plot depth vs qual}
+
+# depth
+depth <- read.table("data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno70ind50.DEPTH",
+                    col.names = "depth")
+
+# quality score
+qual <- read.table("data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno70ind50.QUAL",
+                   col.names = c("locus", "pos", "qual"))
+
+# mean depth
+mean_depth <- mean(depth$depth)
+
+# standard deviation
+std <- sd(depth$depth)
+
+# mode
+mode <- Mode(depth$depth)
+
+cutoff <- sum(mean_depth + (2*std))
+
+# identify SNP sites with depth > mean depth + 1 standard deviation and quality score < 2x the depth at that site
+temp <- bind_cols(qual, depth) %>%
+  filter(depth > cutoff) %>%
+  filter(qual < 2*depth) %>%
+  select(locus)
+
+write.table(temp, "data/BONNET//DEPTH.lowQloci", col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+df <- bind_cols(qual, depth) %>%
+  mutate(qualcutoff = 2*depth)
+
+removeloc <- df %>%
+  filter(depth > cutoff) %>%
+  filter(qual < 2*depth)
+
+ggplot(df, aes(x = depth, y = qual)) +
+  geom_point(shape = 1) +
+  geom_point(data = removeloc, aes(x = depth, y = qual), shape = 1, color = "red") +
+  geom_line(data = df, aes(x = depth, y = qualcutoff), color = "blue",  linetype = "dashed", size = 1) +
+  geom_vline(xintercept = cutoff, color = "blue", linetype = "dashed", size = 1) +
+  labs(x = "red BONNET") +
+  theme_standard
+
+```
+
+Mean depth per locus (across all indivuals) is `r mean_depth` and the standard deviation is `r std`. 
+
+Filter SNP site with depth > mean depth + 1 standard deviation = `r sum(mean_depth + 2*std)` and that have quality scores < 2x the depth at that site and output depth per site.
+
+```{bash filter depth qual, eval=FALSE, include=FALSE}
+
+vcftools --vcf  data/BONNET/BONNET_minQ20mac3minDP5meanDP10geno70ind50ABQDPTHMQM.recode.vcf --exclude-positions data/BONNET//DEPTH.lowQloci --recode --recode-INFO-all --out data/BONNET/BONNET_minQ20mac3minDP5meanDP10geno70ind50ABQDPTHMQMQUAL
+
+vcftools --vcf data/BONNET/BONNET_minQ20mac3minDP5meanDP10geno70ind50ABQDPTHMQMQUAL.recode.vcf --out data/BONNET/BONNET_minQ20mac3minDP5meanDP10geno70ind50ABQDPTHMQMQUAL --site-mean-depth
+
+```
+
+Compare the distribution of mean depth per site averaged across individuals to determine cut-off value of sites with excessively high depth indicative of paralogs/multicopy loci.
+
+```{r plot depth dist, message=FALSE, warning=FALSE}
+
+# calculate mean depth per site (177 individuals)
+depth <- read.table("data/BONNET/BONNET_minQ20mac3minDP5meanDP10geno70ind50ABQDPTHMQMQUAL.ldepth.mean",
+           header = TRUE, stringsAsFactors = FALSE)
+  
+# mean mean depth
+mean <- mean(depth$MEAN_DEPTH)
+
+# standard deviation
+std <- sd(depth$MEAN_DEPTH)
+
+# mode
+mode <- Mode(depth$MEAN_DEPTH)
+
+cutoff <- sum(mean + (2*std))
+
+ggplot(depth, aes(x = MEAN_DEPTH)) +
+  geom_histogram(binwidth = 5, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(MEAN_DEPTH, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = mode),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = cutoff),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per site") +
+  theme_standard
+
+```
+
+Choose cut-off for maximum mean read depth = 120 (calculate mean + 2x std: `r sum(mean + (2*std))`)
+
+```{bash filter max depth}
+
+vcftools --vcf  data/BONNET/BONNET_minQ20mac3minDP5meanDP10geno70ind50ABQDPTHMQMQUAL.recode.vcf --max-meanDP 120 --exclude-positions data/BONNET//DEPTH.lowQloci --recode --recode-INFO-all --out data/BONNET/BONNET_dDocent
+
+# depth indv/locus
+vcftools --vcf data/BONNET//BONNET_dDocent.recode.vcf --out results/BONNET_dDocent --depth
+vcftools --vcf data/BONNET//BONNET_dDocent.recode.vcf --out results/BONNET_dDocent --site-mean-depth
+vcftools --vcf data/BONNET//BONNET_dDocent.recode.vcf --out results/BONNET_dDocent --geno-depth
+
+# missing data indv/locus
+vcftools --vcf data/BONNET//BONNET_dDocent.recode.vcf --out results/BONNET_dDocent --missing-indv
+vcftools --vcf data/BONNET//BONNET_dDocent.recode.vcf --out results/BONNET_dDocent --missing-site
+
+# allele freq/indv freq buden
+vcftools --vcf data/BONNET//BONNET_dDocent.recode.vcf --out results/BONNET_dDocent --indv-freq-burden
+vcftools --vcf data/BONNET//BONNET_dDocent.recode.vcf --out results/BONNET_dDocent --freq2
+vcftools --vcf data/BONNET//BONNET_dDocent.recode.vcf --out results/BONNET_dDocent --singletons
+vcftools --vcf data/BONNET//BONNET_dDocent.recode.vcf --out results/BONNET_dDocent --012
+
+# heterozygosity per individual
+vcftools --vcf data/BONNET//BONNET_dDocent.recode.vcf --out results/BONNET_dDocent --het
+
+# SNP call quality
+vcftools --vcf data/BONNET//BONNET_dDocent.recode.vcf --out results/BONNET_dDocent --site-quality
+
+```
+
+#### Plot stats after dDocent filters
+
+```{r stats dDocent, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+# load stats files ----
+ind_stats_dDocent <- read.ind.stats(dir = "results", vcf = "BONNET_dDocent")
+
+loc_stats_dDocent <- read.loc.stats(dir = "results", vcf = "BONNET_dDocent")
+
+# plot missing data per indv ----
+p1 <- ggplot(ind_stats_dDocent, aes(x = `MISS_BONNET_dDocent`)) +
+  geom_histogram(binwidth = .01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MISS_BONNET_dDocent`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "missing data per indv") +
+  theme_standard
+
+# plot Fis per indv ----
+p2 <- ggplot(ind_stats_dDocent, aes(x = `Fis_BONNET_dDocent`)) +
+  geom_histogram(binwidth = .01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_dDocent`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv") +
+  theme_standard
+
+# plot read depth per indv ----
+p3 <- ggplot(ind_stats_dDocent, aes(x = `MEAN_DEPTH_BONNET_dDocent`)) +
+  geom_histogram(binwidth = 10, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_dDocent`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean read depth per indv") +
+  theme_standard
+
+# plot depth vs missing ----
+p4 <- ggplot(ind_stats_dDocent, aes(x = `MEAN_DEPTH_BONNET_dDocent`, y = `MISS_BONNET_dDocent`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_dDocent`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_dDocent`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per indv", y = "% missing data") +
+  theme_standard
+
+# plot Fis vs missing data per indv ----
+p5 <- ggplot(ind_stats_dDocent, aes(x = `Fis_BONNET_dDocent`, y = `MISS_BONNET_dDocent`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_dDocent`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_dDocent`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv", y = "% missing data") +
+  theme_standard
+
+# plot Fis vs mean depth per indv ----
+p6 <- ggplot(ind_stats_dDocent, aes(x = `Fis_BONNET_dDocent`, y = `MEAN_DEPTH_BONNET_dDocent`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_dDocent`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MEAN_DEPTH_BONNET_dDocent`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv", y = "mean depth per indv") +
+  theme_standard
+
+# plot distribution missing data per locus ----
+p7 <- ggplot(loc_stats_dDocent, aes(x = `MISS_BONNET_dDocent`)) +
+  geom_histogram(binwidth = 0.01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MISS_BONNET_dDocent`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.1),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "% missing data per locus") +
+  theme_standard
+
+# plot distribution mean read depth ----
+p8 <- ggplot(loc_stats_dDocent, aes(x = `MEAN_DEPTH_BONNET_dDocent`)) +
+  geom_histogram(binwidth = 5, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_dDocent`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean read depth per locus") +
+  theme_standard
+
+# plot read depth vs missing data ----
+p9 <- ggplot(loc_stats_dDocent, aes(x = `MEAN_DEPTH_BONNET_dDocent`, y = `MISS_BONNET_dDocent`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_dDocent`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_dDocent`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.1),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per locus", y = "% missing data") +
+  theme_standard
+
+# plot no of SNPs per locus ----
+p10 <- loc_stats_dDocent %>%
+  count(CHR) %>%
+  ggplot(aes(x = n)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "grey95") + 
+  labs(x = "number of SNPs per locus") +
+  theme_standard
+
+temp <- loc_stats_dDocent %>%
+  count(CHR)
+
+# plot number of SNPs per contig vs. mean depth ----
+p11 <- left_join(temp, loc_stats_dDocent) %>%
+  ggplot() +
+  geom_point(aes(x = n, y = `MEAN_DEPTH_BONNET_dDocent`)) +
+  labs(x = "number of SNPs per contig", y = "mean depth") +
+  theme_standard
+
+# plot depth vs SNP quality ----
+site_qual <- read.table("results/BONNET_dDocent.lqual", 
+                        header = TRUE, stringsAsFactors = FALSE) %>%
+  mutate(PROB = 10^(-QUAL/10))
+
+temp <- data.frame(loc_stats_dDocent$`MEAN_DEPTH_BONNET_dDocent`, site_qual$QUAL) %>%
+  rename(depth = loc_stats_dDocent.MEAN_DEPTH_BONNET_dDocent, qual = site_qual.QUAL)
+
+p12 <- ggplot(temp, aes(x = depth, y = qual)) +
+  geom_point(size = 1) +
+  geom_vline(aes(xintercept = mean(depth, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(qual, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per locus", y = "SNP quality") +
+  theme_standard
+
+m6 <- multiplot(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, cols=2)
+
+```
+
+### Step 4: Filter Missing data loci/indv
+
+Remove loci with genotype call rate < 80%.
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_dDocent.recode.vcf --out data/BONNET//BONNET_minQ20mac3minDP5meanDP10dDocentgeno80ind50 --max-missing 0.8 --recode --recode-INFO-all
+
+vcftools --vcf data/BONNET//BONNET_minQ20mac3minDP5meanDP10dDocentgeno80ind50.recode.vcf --out results/BONNET_minQ20mac3minDP5meanDP10dDocentgeno80ind50 --missing-indv
+
+```
+
+Identify individuals with > 30% missing data
+
+```{r}
+
+imiss <- read.table("results/BONNET_minQ20mac3minDP5meanDP10dDocentgeno80ind50.imiss", 
+                    header = TRUE, stringsAsFactors = FALSE)
+
+ggplot(imiss, aes(x = F_MISS)) +
+  geom_histogram(binwidth = 0.05, color = "black", fill = "grey75") +
+  geom_vline(xintercept = .3, color = "darkred", linetype = "dashed") +
+  scale_x_continuous(limits = c(0, 1)) +
+  theme_standard
+
+LQ_indv <- imiss %>%
+  filter(F_MISS > 0.3) %>%
+  select(INDV)
+
+write.table(LQ_indv, "data/BONNET//LQ_Ind_FIL-5a",
+            col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+```
+
+Remove flagged individuals
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20mac3minDP5meanDP10dDocentgeno80ind50.recode.vcf --out data/BONNET//BONNET_minQ20mac3minDP5meanDP10dDocentgeno80ind30 --remove data/BONNET//LQ_Ind_FIL-5a --recode --recode-INFO-all
+
+```
+
+Remove loci with genotype call rate < 90%.
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20mac3minDP5meanDP10dDocentgeno80ind30.recode.vcf --out data/BONNET//BONNET_minQ20mac3minDP5meanDP10dDocentgeno90ind30 --max-missing 0.9 --recode --recode-INFO-all
+
+vcftools --vcf data/BONNET//BONNET_minQ20mac3minDP5meanDP10dDocentgeno90ind30.recode.vcf --out results/BONNET_minQ20mac3minDP5meanDP10dDocentgeno90ind30 --missing-indv
+
+```
+
+Identify individuals with > 25% missing data
+
+```{r}
+
+imiss <- read.table("results/BONNET_minQ20mac3minDP5meanDP10dDocentgeno90ind30.imiss", 
+                    header = TRUE, stringsAsFactors = FALSE)
+
+ggplot(imiss, aes(x = F_MISS)) +
+  geom_histogram(binwidth = 0.05, color = "black", fill = "grey75") +
+  geom_vline(xintercept = .25, color = "darkred", linetype = "dashed") +
+  scale_x_continuous(limits = c(0, 1)) +
+  theme_standard
+
+LQ_indv <- imiss %>%
+  filter(F_MISS > 0.25) %>%
+  select(INDV)
+
+write.table(LQ_indv, "results/LQ_Ind_FIL-5b",
+            col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+```
+
+Remove flagged individuals
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20mac3minDP5meanDP10dDocentgeno90ind30.recode.vcf --out data/BONNET//BONNET_minQ20mac3minDP5meanDP10dDocentgeno90ind25 --remove results/LQ_Ind_FIL-5b --recode --recode-INFO-all
+
+```
+
+Remove loci with genotype call rate < 95%.
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20mac3minDP5meanDP10dDocentgeno90ind25.recode.vcf --out data/BONNET//BONNET_minQ20mac3minDP5meanDP10dDocentgeno95ind25 --max-missing 0.95 --recode --recode-INFO-all
+
+vcfallelicprimitives data/BONNET//BONNET_minQ20mac3minDP5meanDP10dDocentgeno95ind25.recode.vcf --keep-info --keep-geno > data/BONNET//SNPs.vcf
+
+vcftools --vcf data/BONNET//SNPs.vcf --out data/BONNET//BONNET_FIL-5 --remove-indels --recode --recode-INFO-all
+
+# depth indv/locus
+vcftools --vcf data/BONNET//BONNET_FIL-5.recode.vcf --out results/BONNET_FIL-5 --depth
+vcftools --vcf data/BONNET//BONNET_FIL-5.recode.vcf --out results/BONNET_FIL-5 --site-mean-depth
+vcftools --vcf data/BONNET//BONNET_FIL-5.recode.vcf --out results/BONNET_FIL-5 --geno-depth
+
+# missing data indv/locus
+vcftools --vcf data/BONNET//BONNET_FIL-5.recode.vcf --out results/BONNET_FIL-5 --missing-indv
+vcftools --vcf data/BONNET//BONNET_FIL-5.recode.vcf --out results/BONNET_FIL-5 --missing-site
+
+# allele freq/indv freq buden
+vcftools --vcf data/BONNET//BONNET_FIL-5.recode.vcf --out results/BONNET_FIL-5 --indv-freq-burden
+vcftools --vcf data/BONNET//BONNET_FIL-5.recode.vcf --out results/BONNET_FIL-5 --freq2
+vcftools --vcf data/BONNET//BONNET_FIL-5.recode.vcf --out results/BONNET_FIL-5 --singletons
+vcftools --vcf data/BONNET//BONNET_FIL-5.recode.vcf --out results/BONNET_FIL-5 --012
+
+# heterozygosity per individual
+vcftools --vcf data/BONNET//BONNET_FIL-5.recode.vcf --out results/BONNET_FIL-5 --het
+
+# SNP call quality
+vcftools --vcf data/BONNET//BONNET_FIL-5.recode.vcf --out results/BONNET_FIL-5 --site-quality
+
+```
+
+### Plot stats for filtered data set
+
+```{r stats FIL 5, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+# load stats files ----
+ind_stats_FIL_5 <- read.ind.stats(dir = "results", vcf = "BONNET_FIL-5")
+
+loc_stats_FIL_5 <- read.loc.stats(dir = "results", vcf = "BONNET_FIL-5")
+
+# plot missing data per indv ----
+p1 <- ggplot(ind_stats_FIL_5, aes(x = `MISS_BONNET_FIL-5`)) +
+  geom_histogram(binwidth = .01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MISS_BONNET_FIL-5`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "missing data per indv") +
+  theme_standard
+
+# plot Fis per indv ----
+p2 <- ggplot(ind_stats_FIL_5, aes(x = `Fis_BONNET_FIL-5`)) +
+  geom_histogram(binwidth = .01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_FIL-5`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv") +
+  theme_standard
+
+# plot read depth per indv ----
+p3 <- ggplot(ind_stats_FIL_5, aes(x = `MEAN_DEPTH_BONNET_FIL-5`)) +
+  geom_histogram(binwidth = 10, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-5`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean read depth per indv") +
+  theme_standard
+
+# plot depth vs missing ----
+p4 <- ggplot(ind_stats_FIL_5, aes(x = `MEAN_DEPTH_BONNET_FIL-5`, y = `MISS_BONNET_FIL-5`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-5`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_FIL-5`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per indv", y = "% missing data") +
+  theme_standard
+
+# plot Fis vs missing data per indv ----
+p5 <- ggplot(ind_stats_FIL_5, aes(x = `Fis_BONNET_FIL-5`, y = `MISS_BONNET_FIL-5`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_FIL-5`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_FIL-5`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv", y = "% missing data") +
+  theme_standard
+
+# plot Fis vs mean depth per indv ----
+p6 <- ggplot(ind_stats_FIL_5, aes(x = `Fis_BONNET_FIL-5`, y = `MEAN_DEPTH_BONNET_FIL-5`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_FIL-5`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MEAN_DEPTH_BONNET_FIL-5`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv", y = "mean depth per indv") +
+  theme_standard
+
+# plot distribution missing data per locus ----
+p7 <- ggplot(loc_stats_FIL_5, aes(x = `MISS_BONNET_FIL-5`)) +
+  geom_histogram(binwidth = 0.01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MISS_BONNET_FIL-5`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.1),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "% missing data per locus") +
+  theme_standard
+
+# plot distribution mean read depth ----
+p8 <- ggplot(loc_stats_FIL_5, aes(x = `MEAN_DEPTH_BONNET_FIL-5`)) +
+  geom_histogram(binwidth = 5, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-5`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean read depth per locus") +
+  theme_standard
+
+# plot read depth vs missing data ----
+p9 <- ggplot(loc_stats_FIL_5, aes(x = `MEAN_DEPTH_BONNET_FIL-5`, y = `MISS_BONNET_FIL-5`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-5`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_FIL-5`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.1),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per locus", y = "% missing data") +
+  theme_standard
+
+# plot no of SNPs per locus ----
+p10 <- loc_stats_FIL_5 %>%
+  count(CHR) %>%
+  ggplot(aes(x = n)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "grey95") + 
+  labs(x = "number of SNPs per locus") +
+  theme_standard
+
+temp <- loc_stats_FIL_5 %>%
+  count(CHR)
+
+# plot number of SNPs per contig vs. mean depth ----
+p11 <- left_join(temp, loc_stats_FIL_5) %>%
+  ggplot() +
+  geom_point(aes(x = n, y = `MEAN_DEPTH_BONNET_FIL-5`)) +
+  labs(x = "number of SNPs per contig", y = "mean depth") +
+  theme_standard
+
+# plot depth vs SNP quality ----
+site_qual <- read.table("results/BONNET_FIL-5.lqual", 
+                        header = TRUE, stringsAsFactors = FALSE) %>%
+  mutate(PROB = 10^(-QUAL/10))
+
+temp <- data.frame(loc_stats_FIL_5$`MEAN_DEPTH_BONNET_FIL-5`, site_qual$QUAL) %>%
+  rename(depth = loc_stats_FIL_5..MEAN_DEPTH_BONNET_FIL.5., qual = site_qual.QUAL)
+
+p12 <- ggplot(temp, aes(x = depth, y = qual)) +
+  geom_point(size = 1) +
+  geom_vline(aes(xintercept = mean(depth, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(qual, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per locus", y = "SNP quality") +
+  theme_standard
+
+m7 <- multiplot(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, cols=2)
+
+```
+
+Data set contains `r nrow(ind_stats_FIL_5)` individuals and `r nrow(loc_stats_FIL_5)` loci.
+
+## Filtering scheme 6
+
+### Step 1: Filter LQ loci
+
+Remove SNPs with quality score < 20, minimum depth per genotype < 5, and minimum mean depth < 15. 
+
+Then remove loci with genotype call rate < 50%.
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20minDP5meanDP10.recode.vcf --out data/BONNET//BONNET_minQminDP5meanDP10geno50 --max-missing 0.5 --recode --recode-INFO-all
+
+vcftools --vcf data/BONNET//BONNET_minQminDP5meanDP10geno50.recode.vcf --out results/BONNET_it1b --missing-indv
+
+```
+
+### Step 2: Missing data indvidiuals/loci 
+
+Retain loci with genotype call rate > 70% and individuals with missing data < 50%.
+
+#### Identify individuals with > 90% missing data
+
+```{r}
+
+imiss <- read.table("results/BONNET_it1b.imiss", 
+                    header = TRUE, stringsAsFactors = FALSE)
+
+ggplot(imiss, aes(x = F_MISS)) +
+  geom_histogram(binwidth = 0.05, color = "black", fill = "grey75") +
+  geom_vline(xintercept = .9, color = "darkblue", linetype = "dashed") +
+  scale_x_continuous(limits = c(0, 1)) +
+  theme_standard
+
+LQ_indv <- imiss %>%
+  filter(F_MISS > 0.9) %>%
+  select(INDV)
+
+write.table(LQ_indv, "data/BONNET//LQ_Ind_it1b",
+            col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+```
+
+Remove flagged individuals
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQminDP5meanDP10geno50.recode.vcf --out data/BONNET//BONNET_minQ20minDP5meanDP10geno50ind90 --remove data/BONNET//LQ_Ind_it1b --recode --recode-INFO-all
+
+```
+
+Remove loci with genotype call rate < 60%.
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20minDP5meanDP10geno50ind90.recode.vcf --out data/BONNET//BONNET_minQ20minDP5meanDP10geno60ind90 --max-missing 0.6 --recode --recode-INFO-all
+
+vcftools --vcf data/BONNET//BONNET_minQ20minDP5meanDP10geno60ind90.recode.vcf --out results/BONNET_it2b --missing-indv
+
+```
+
+Identify individuals with > 70% missing data
+
+```{r}
+
+imiss <- read.table("results/BONNET_it2b.imiss", 
+                    header = TRUE, stringsAsFactors = FALSE)
+
+ggplot(imiss, aes(x = F_MISS)) +
+  geom_histogram(binwidth = 0.05, color = "black", fill = "grey75") +
+  geom_vline(xintercept = .7, color = "darkred", linetype = "dashed") +
+  scale_x_continuous(limits = c(0, 1)) +
+  theme_standard
+
+LQ_indv <- imiss %>%
+  filter(F_MISS > 0.7) %>%
+  select(INDV)
+
+write.table(LQ_indv, "data/BONNET//LQ_Ind_it2b",
+            col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+```
+
+Remove flagged individuals
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20minDP5meanDP10geno60ind90.recode.vcf --out data/BONNET//BONNET_minQ20minDP5meanDP10geno60ind70 --remove data/BONNET//LQ_Ind_it2b --recode --recode-INFO-all
+
+```
+
+Remove loci with genotype call rate < 70%.
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20minDP5meanDP10geno60ind70.recode.vcf --out data/BONNET//BONNET_minQ20minDP5meanDP10geno70ind70 --max-missing 0.7 --recode --recode-INFO-all
+
+vcftools --vcf data/BONNET//BONNET_minQ20minDP5meanDP10geno70ind70.recode.vcf --out results/BONNET_it3b --missing-indv
+
+```
+
+Identify individuals with > 50% missing data
+
+```{r}
+
+imiss <- read.table("results/BONNET_it3b.imiss", 
+                    header = TRUE, stringsAsFactors = FALSE)
+
+ggplot(imiss, aes(x = F_MISS)) +
+  geom_histogram(binwidth = 0.05, color = "black", fill = "grey75") +
+  geom_vline(xintercept = .5, color = "darkred", linetype = "dashed") +
+  scale_x_continuous(limits = c(0, 1)) +
+  theme_standard
+
+LQ_indv <- imiss %>%
+  filter(F_MISS > 0.5) %>%
+  select(INDV)
+
+write.table(LQ_indv, "data/BONNET//LQ_Ind_it3b",
+            col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+```
+
+Remove flagged individuals
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20minDP5meanDP10geno70ind70.recode.vcf --out data/BONNET//BONNET_minQ20minDP5meanDP10geno70ind50 --remove data/BONNET//LQ_Ind_it3b --recode --recode-INFO-all
+
+```
+
+### Step 3: Info flag filtering
+
+#### Query stats
+
+```{bash query INFO stats II, eval=FALSE, include=FALSE}
+
+# allele balance
+cut -f8 BONNET_minQ20minDP5meanDP10geno70ind50.recode.vcf | grep -oe "AB=[[:digit:]].[[:digit:]][[:digit:]][[:digit:]]" | sed -s 's/AB=//g' > BONNET_minQ20minDP5meanDP10geno70ind50.AB
+
+# site Depth
+cut -f8 BONNET_minQ20minDP5meanDP10geno70ind50.recode.vcf | grep -oe "DP=[0-9]*" | sed -s 's/DP=//g' > BONNET_minQ20minDP5meanDP10geno70ind50.DEPTH
+
+# quality score
+mawk '!/#/' BONNET_minQ20minDP5meanDP10geno70ind50.recode.vcf | cut -f1,2,6 > BONNET_minQ20minDP5meanDP10geno70ind50.QUAL
+
+# mapping quality
+cut -f8 BONNET_minQ20minDP5meanDP10geno70ind50.recode.vcf | grep -oe "MQM=[0-9]*" | sed -s 's/MQM=//g' > BONNET_minQ20minDP5meanDP10geno70ind50.MQM
+cut -f8 BONNET_minQ20minDP5meanDP10geno70ind50.recode.vcf | grep -oe "MQMR=[0-9]*" | sed -s 's/MQMR=//g' > BONNET_minQ20minDP5meanDP10geno70ind50.MQMR
+
+# strand balance
+cut -f8 BONNET_minQ20minDP5meanDP10geno70ind50.recode.vcf | grep -oe "SAF=[0-9]*" | sed -s 's/SAF=//g' > BONNET_minQ20minDP5meanDP10geno70ind50.SAF
+cut -f8 BONNET_minQ20minDP5meanDP10geno70ind50.recode.vcf | grep -oe "SAR=[0-9]*" | sed -s 's/SAR=//g' > BONNET_minQ20minDP5meanDP10geno70ind50.SAR
+cut -f8 BONNET_minQ20minDP5meanDP10geno70ind50.recode.vcf | grep -oe "SRF=[0-9]*" | sed -s 's/SRF=//g' > BONNET_minQ20minDP5meanDP10geno70ind50.SRF
+cut -f8 BONNET_minQ20minDP5meanDP10geno70ind50.recode.vcf | grep -oe "SRR=[0-9]*" | sed -s 's/SRR=//g' > BONNET_minQ20minDP5meanDP10geno70ind50.SRR
+
+# properly paired status
+cut -f8 BONNET_minQ20minDP5meanDP10geno70ind50.recode.vcf | grep -oe "PAIRED=[0-9]\.[0-9]*" | sed -s 's/PAIRED=//g' > BONNET_minQ20minDP5meanDP10geno70ind50.PAIRED
+cut -f8 BONNET_minQ20minDP5meanDP10geno70ind50.recode.vcf | grep -oe "PAIREDR=[0-9]\.[0-9]*" | sed -s 's/PAIREDR=//g' > BONNET_minQ20minDP5meanDP10geno70ind50.PAIREDR
+
+```
+
+#### Allele balance
+
+AB: Allele balance at heterozygous sites: a number between 0 and 1 representing the ratio of reads showing the reference allele to all reads, considering only reads from individuals called as heterozygous
+
+Allele balance is the ratio of reads for reference allele to all reads, considering only reads from individuals called as heterozygous. Values range from 0 - 1; allele balance (for real loci) should be approx. 0.5. Filter contigs SNPs for which the with allele balance < 0.25 and > 0.75.
+
+```{r plot AB II, fig.height=3, fig.width=4}
+
+read.table("data/BONNET//BONNET_minQ20minDP5meanDP10geno70ind50.AB",
+           col.names = "AB", stringsAsFactors = FALSE) %>%
+  ggplot(aes(x = AB)) +
+  geom_histogram(binwidth = 0.01, color = "black", fill = "grey95") +
+  geom_vline(xintercept = 0.5, color = "red", linetype = "dashed") +
+  geom_vline(xintercept = 0.2, color = "darkblue", linetype = "dashed") +
+  geom_vline(xintercept = 0.8, color = "darkblue", linetype = "dashed") +
+  scale_x_continuous(limits = c(0, 1)) +
+  labs(x = "Allele balance (BONNET)") +
+  theme_standard
+
+```
+
+Filter contigs with SNP calls with AB > 0.2, AB > 0.8; retain loci very close to 0 (retain loci that are fixed variants). Remove genotypes if the quality sum of the reference or alternate allele was 0.
+
+```{bash, eval=FALSE, include=FALSE}
+
+# this works... not sure why cant write to file in the folder
+vcffilter -s -f "AB > 0.2 & AB < 0.8 | AB < 0.01 | AB > 0.99" -s -g "QR > 0 | QA > 0"  BONNET_minQ20minDP5meanDP10geno70ind50.recode.vcf >  BONNET_minQ20minDP5meanDP10geno70ind50AB.recode.vcf 
+
+mawk '!/#/' BONNET_minQ20minDP5meanDP10geno70ind50AB.recode.vcf | wc -l
+
+```
+
+Remaining SNPs: 50,938.
+
+#### Quality/depth ratio
+
+Compare quality/depth.
+
+```{r, fig.height=10, fig.width=8, message=FALSE, warning=FALSE}
+
+# depth
+depth <- read.table("data/BONNET//BONNET_minQ20minDP5meanDP10geno70ind50.DEPTH",
+                    col.names = "depth")
+
+# quality score
+qual <- read.table("data/BONNET//BONNET_minQ20minDP5meanDP10geno70ind50.QUAL",
+                   col.names = c("locus", "pos", "qual"))
+
+temp <- bind_cols(qual, depth) %>%
+  mutate(ratio = qual/depth)
+
+ggplot(temp, aes(x = ratio)) + 
+  geom_histogram(binwidth = 0.1, color = "black", fill = "grey95") +
+  geom_vline(xintercept = 0.2, color = "darkred", linetype = "dashed") +
+  geom_vline(xintercept = 0.5, color = "darkred", linetype = "dashed") +
+  labs(x = "ratio quality/depth (red BONNET)", y = "no. of loci") +
+  theme_standard
+
+```
+
+Remove loci with quality/depth ratio < 0.2
+
+```{bash}
+
+vcffilter -s -f "QUAL / DP > 0.2" BONNET_minQ20minDP5meanDP10geno70ind50AB.recode.vcf > BONNET_minQ20minDP5meanDP10geno70ind50ABQDPTH.recode.vcf
+
+mawk '!/#/' BONNET_minQ20minDP5meanDP10geno70ind50ABQDPTH.recode.vcf | wc -l
+
+```
+
+Remaining SNPs: 41,085.
+
+#### ratio mapping quality
+
+Remove loci based on ratio of mapping quality for reference and alternate allele, i.e. sites that have a high discrepancy between the mapping qualities of two alleles.
+
+```{r plot map qual ratios II}
+
+temp <- read.table("data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno70ind50.MQM", col.names = "MQM")
+
+mapqual <- read.table("data/BONNET//BONNET_minQ20mac3minDP5meanDP10geno70ind50.MQMR", col.names = "MQMR")
+
+mapqual <- bind_cols(mapqual, temp) %>%
+  mutate(ratio = MQM/MQMR)
+
+filter <- mapqual %>%
+  filter(ratio < 0.25 | ratio > 1.75)
+
+ggplot(mapqual, aes(x = MQM, y = MQMR)) +
+  geom_point(shape = 1) + 
+  geom_abline(intercept = 0, slope = 1, size = 1, color = "red", linetype = "dashed") +
+  geom_abline(intercept = 0, slope = 4, size = 1, color = "darkblue", linetype = "dashed") +
+  geom_abline(intercept = 0, slope = 0.571, size = 1, color = "darkblue", linetype = "dashed") +
+  geom_point(data = filter, aes(x = MQM, y = MQMR), shape = 1, color = "red") +
+  scale_x_continuous(limits = c(0, 65)) + 
+  scale_y_continuous(limits = c(0, 65)) +
+  labs(x = "mean mapping quality alt allele (red BONNET)", y = "mean mapping quality ref allele ") +
+  theme_standard
+
+```
+
+Filter loci with mapping quality ratio < 0.25 and > 1.75.
+
+```{bash filter map qual ratio II}
+
+vcffilter -s -f "MQM / MQMR > 0.25 & MQM / MQMR < 1.75" BONNET_minQ20minDP5meanDP10geno70ind50ABQDPTH.recode.vcf > BONNET_minQ20minDP5meanDP10geno70ind50ABQDPTHMQM.recode.vcf
+
+mawk '!/#/' BONNET_minQ20minDP5meanDP10geno70ind50ABQDPTHMQM.recode.vcf | wc -l
+
+```
+
+Remaining SNPs: 40,482.
+
+#### Maximum depth & Quality
+
+Identify distribution of depth (based on original data set) to identify loci with excess coverage.
+
+Original number of individuals in data set is `r nrow(ind_stats_raw)` (INFO flags in filtered data set are are based on original number of individuals in data set).
+
+Create file with the original site depth and quality score for each site:
+
+Calculate average depth and standard deviation:
+
+```{r plot depth vs qual II}
+
+# depth
+depth <- read.table("data/BONNET//BONNET_minQ20minDP5meanDP10geno70ind50.DEPTH",
+                    col.names = "depth")
+
+# quality score
+qual <- read.table("data/BONNET//BONNET_minQ20minDP5meanDP10geno70ind50.QUAL",
+                   col.names = c("locus", "pos", "qual"))
+
+# mean depth
+mean_depth <- mean(depth$depth)
+
+# standard deviation
+std <- sd(depth$depth)
+
+# mode
+mode <- Mode(depth$depth)
+
+cutoff <- sum(mean_depth + (2*std))
+
+# identify SNP sites with depth > mean depth + 1 standard deviation and quality score < 2x the depth at that site
+temp <- bind_cols(qual, depth) %>%
+  filter(depth > cutoff) %>%
+  filter(qual < 2*depth) %>%
+  select(locus)
+
+write.table(temp, "data/BONNET//DEPTH.lowQloci", col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+df <- bind_cols(qual, depth) %>%
+  mutate(qualcutoff = 2*depth)
+
+removeloc <- df %>%
+  filter(depth > cutoff) %>%
+  filter(qual < 2*depth)
+
+ggplot(df, aes(x = depth, y = qual)) +
+  geom_point(shape = 1) +
+  geom_point(data = removeloc, aes(x = depth, y = qual), shape = 1, color = "red") +
+  geom_line(data = df, aes(x = depth, y = qualcutoff), color = "blue",  linetype = "dashed", size = 1) +
+  geom_vline(xintercept = cutoff, color = "blue", linetype = "dashed", size = 1) +
+  labs(x = "read depth (bonnetheads") +
+  theme_standard
+
+```
+
+Mean depth per locus (across all indivuals) is `r mean_depth` and the standard deviation is `r std`. 
+
+Filter SNP site with depth > mean depth + 1 standard deviation = `r sum(mean_depth + 2*std)` and that have quality scores < 2x the depth at that site and output depth per site.
+
+```{bash filter depth qual II, eval=FALSE, include=FALSE}
+
+vcftools --vcf  data/BONNET//BONNET_minQ20minDP5meanDP10geno70ind50ABQDPTHMQM.recode.vcf --exclude-positions data/BONNET/DEPTH.lowQloci --recode --recode-INFO-all --out data/BONNET/BONNET_minQ20minDP5meanDP10geno70ind50ABQDPTHMQMQUAL
+
+vcftools --vcf data/BONNET/BONNET_minQ20minDP5meanDP10geno70ind50ABQDPTHMQMQUAL.recode.vcf --out data/BONNET/BONNET_minQ20minDP5meanDP10geno70ind50ABQDPTHMQMQUAL --site-mean-depth
+
+```
+
+Compare the distribution of mean depth per site averaged across individuals to determine cut-off value of sites with excessively high depth indicative of paralogs/multicopy loci.
+
+```{r plot depth dist II, message=FALSE, warning=FALSE}
+
+# calculate mean depth per site (177 individuals)
+depth <- read.table("data/BONNET/BONNET_minQ20minDP5meanDP10geno70ind50ABQDPTHMQMQUAL.ldepth.mean",
+           header = TRUE, stringsAsFactors = FALSE)
+
+# mean mean depth
+mean <- mean(depth$MEAN_DEPTH)
+
+# standard deviation
+std <- sd(depth$MEAN_DEPTH)
+
+# mode
+mode <- Mode(depth$MEAN_DEPTH)
+
+cutoff <- sum(mean + (2*std))
+
+ggplot(depth, aes(x = MEAN_DEPTH)) +
+  geom_histogram(binwidth = 5, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(MEAN_DEPTH, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = mode),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = cutoff <- sum(mean + (2*std))),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per site") +
+  theme_standard
+
+```
+
+Choose cut-off for maximum mean read depth = 120.
+
+```{bash}
+
+vcftools --vcf  data/BONNET/BONNET_minQ20minDP5meanDP10geno70ind50ABQDPTHMQMQUAL.recode.vcf --max-meanDP 120 --exclude-positions data/BONNET/DEPTH.lowQloci --recode --recode-INFO-all --out data/BONNET/BONNET_dDocentb
+
+# stats BONNET
+vcftools --vcf data/BONNET/BONNET_dDocentb.recode.vcf --out results/BONNET_dDocentb --depth
+vcftools --vcf data/BONNET/BONNET_dDocentb.recode.vcf --out results/BONNET_dDocentb --site-mean-depth
+vcftools --vcf data/BONNET/BONNET_dDocentb.recode.vcf --out results/BONNET_dDocentb --site-quality
+vcftools --vcf data/BONNET/BONNET_dDocentb.recode.vcf --out results/BONNET_dDocentb --missing-indv
+vcftools --vcf data/BONNET/BONNET_dDocentb.recode.vcf --out results/BONNET_dDocentb --missing-site
+vcftools --vcf data/BONNET/BONNET_dDocentb.recode.vcf --out results/BONNET_dDocentb --het
+vcftools --vcf data/BONNET/BONNET_dDocentb.recode.vcf --out results/BONNET_dDocentb --freq2
+vcftools --vcf data/BONNET/BONNET_dDocentb.recode.vcf --out results/BONNET_dDocentb --indv-freq-burden
+vcftools --vcf data/BONNET/BONNET_dDocentb.recode.vcf --out results/BONNET_dDocentb --singletons
+
+
+# depth indv/locus
+vcftools --vcf data/BONNET/BONNET_dDocentb.recode.vcf --out results/BONNET_dDocentb --depth
+vcftools --vcf data/BONNET/BONNET_dDocentb.recode.vcf --out results/BONNET_dDocentb --site-mean-depth
+vcftools --vcf data/BONNET/BONNET_dDocentb.recode.vcf --out results/BONNET_dDocentb --geno-depth
+
+# missing data indv/locus
+vcftools --vcf data/BONNET/BONNET_dDocentb.recode.vcf --out results/BONNET_dDocentb --missing-indv
+vcftools --vcf data/BONNET/BONNET_dDocentb.recode.vcf --out results/BONNET_dDocentb --missing-site
+
+# allele freq/indv freq buden
+vcftools --vcf data/BONNET/BONNET_dDocentb.recode.vcf --out results/BONNET_dDocentb --indv-freq-burden
+vcftools --vcf data/BONNET/BONNET_dDocentb.recode.vcf --out results/BONNET_dDocentb --freq2
+vcftools --vcf data/BONNET/BONNET_dDocentb.recode.vcf --out results/BONNET_dDocentb --singletons
+vcftools --vcf data/BONNET/BONNET_dDocentb.recode.vcf --out results/BONNET_dDocentb --012
+
+# heterozygosity per individual
+vcftools --vcf data/BONNET/BONNET_dDocentb.recode.vcf --out results/BONNET_dDocentb --het
+
+# SNP call quality
+vcftools --vcf data/BONNET/BONNET_dDocentb.recode.vcf --out results/BONNET_dDocentb --site-quality
+
+```
+
+#### Plot stats after dDocent filters
+
+```{r stats dDocent II, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+# load stats files ----
+ind_stats_dDocent <- read.ind.stats(dir = "results", vcf = "BONNET_dDocentb")
+
+loc_stats_dDocent <- read.loc.stats(dir = "results", vcf = "BONNET_dDocentb")
+
+# plot missing data per indv ----
+p1 <- ggplot(ind_stats_dDocent, aes(x = `MISS_BONNET_dDocentb`)) +
+  geom_histogram(binwidth = .01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MISS_BONNET_dDocentb`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "missing data per indv") +
+  theme_standard
+
+# plot Fis per indv ----
+p2 <- ggplot(ind_stats_dDocent, aes(x = `Fis_BONNET_dDocentb`)) +
+  geom_histogram(binwidth = .01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_dDocentb`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv") +
+  theme_standard
+
+# plot read depth per indv ----
+p3 <- ggplot(ind_stats_dDocent, aes(x = `MEAN_DEPTH_BONNET_dDocentb`)) +
+  geom_histogram(binwidth = 10, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_dDocentb`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean read depth per indv") +
+  theme_standard
+
+# plot depth vs missing ----
+p4 <- ggplot(ind_stats_dDocent, aes(x = `MEAN_DEPTH_BONNET_dDocentb`, y = `MISS_BONNET_dDocentb`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_dDocentb`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_dDocentb`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per indv", y = "% missing data") +
+  theme_standard
+
+# plot Fis vs missing data per indv ----
+p5 <- ggplot(ind_stats_dDocent, aes(x = `Fis_BONNET_dDocentb`, y = `MISS_BONNET_dDocentb`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_dDocentb`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_dDocentb`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv", y = "% missing data") +
+  theme_standard
+
+# plot Fis vs mean depth per indv ----
+p6 <- ggplot(ind_stats_dDocent, aes(x = `Fis_BONNET_dDocentb`, y = `MEAN_DEPTH_BONNET_dDocentb`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_dDocentb`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MEAN_DEPTH_BONNET_dDocentb`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv", y = "mean depth per indv") +
+  theme_standard
+
+# plot distribution missing data per locus ----
+p7 <- ggplot(loc_stats_dDocent, aes(x = `MISS_BONNET_dDocentb`)) +
+  geom_histogram(binwidth = 0.01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MISS_BONNET_dDocentb`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.1),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "% missing data per locus") +
+  theme_standard
+
+# plot distribution mean read depth ----
+p8 <- ggplot(loc_stats_dDocent, aes(x = `MEAN_DEPTH_BONNET_dDocentb`)) +
+  geom_histogram(binwidth = 5, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_dDocentb`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean read depth per locus") +
+  theme_standard
+
+# plot read depth vs missing data ----
+p9 <- ggplot(loc_stats_dDocent, aes(x = `MEAN_DEPTH_BONNET_dDocentb`, y = `MISS_BONNET_dDocentb`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_dDocentb`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_dDocentb`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.1),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per locus", y = "% missing data") +
+  theme_standard
+
+# plot no of SNPs per locus ----
+p10 <- loc_stats_dDocent %>%
+  count(CHR) %>%
+  ggplot(aes(x = n)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "grey95") + 
+  labs(x = "number of SNPs per locus") +
+  theme_standard
+
+temp <- loc_stats_dDocent %>%
+  count(CHR)
+
+# plot number of SNPs per contig vs. mean depth ----
+p11 <- left_join(temp, loc_stats_dDocent) %>%
+  ggplot() +
+  geom_point(aes(x = n, y = `MEAN_DEPTH_BONNET_dDocentb`)) +
+  labs(x = "number of SNPs per contig", y = "mean depth") +
+  theme_standard
+
+# plot depth vs SNP quality ----
+site_qual <- read.table("results/BONNET_dDocentb.lqual", 
+                        header = TRUE, stringsAsFactors = FALSE) %>%
+  mutate(PROB = 10^(-QUAL/10))
+
+temp <- data.frame(loc_stats_dDocent$`MEAN_DEPTH_BONNET_dDocentb`, site_qual$QUAL) %>%
+  rename(depth = loc_stats_dDocent.MEAN_DEPTH_BONNET_dDocentb, qual = site_qual.QUAL)
+
+p12 <- ggplot(temp, aes(x = depth, y = qual)) +
+  geom_point(size = 1) +
+  geom_vline(aes(xintercept = mean(depth, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(qual, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per locus", y = "SNP quality") +
+  theme_standard
+
+m6 <- multiplot(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, cols=2)
+
+```
+
+### Step 4: Filter Missing data loci/indv
+
+Remove loci with genotype call rate < 80%.
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_dDocentb.recode.vcf --out data/BONNET//BONNET_minQ20minDP5meanDP10dDocentgeno80ind50 --max-missing 0.8 --recode --recode-INFO-all
+
+vcftools --vcf data/BONNET//BONNET_minQ20minDP5meanDP10dDocentgeno80ind50.recode.vcf --out results/BONNET_minQ20minDP5meanDP10dDocentgeno80ind50 --missing-indv
+
+```
+
+Identify individuals with > 30% missing data
+
+```{r}
+
+imiss <- read.table("results/BONNET_minQ20minDP5meanDP10dDocentgeno80ind50.imiss", 
+                    header = TRUE, stringsAsFactors = FALSE)
+
+ggplot(imiss, aes(x = F_MISS)) +
+  geom_histogram(binwidth = 0.05, color = "black", fill = "grey75") +
+  geom_vline(xintercept = .3, color = "darkred", linetype = "dashed") +
+  scale_x_continuous(limits = c(0, 1)) +
+  theme_standard
+
+LQ_indv <- imiss %>%
+  filter(F_MISS > 0.3) %>%
+  select(INDV)
+
+write.table(LQ_indv, "data/BONNET//LQ_Ind_FIL-6a",
+            col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+```
+
+Remove flagged individuals
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20minDP5meanDP10dDocentgeno80ind50.recode.vcf --out data/BONNET//BONNET_minQ20minDP5meanDP10dDocentgeno80ind30 --remove data/BONNET//LQ_Ind_FIL-6a --recode --recode-INFO-all
+
+```
+
+Remove loci with genotype call rate < 90%.
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20minDP5meanDP10dDocentgeno80ind30.recode.vcf --out data/BONNET//BONNET_minQ20minDP5meanDP10dDocentgeno90ind30 --max-missing 0.9 --recode --recode-INFO-all
+
+vcftools --vcf data/BONNET//BONNET_minQ20minDP5meanDP10dDocentgeno90ind30.recode.vcf --out results/BONNET_minQ20minDP5meanDP10dDocentgeno90ind30 --missing-indv
+
+```
+
+Identify individuals with > 25% missing data
+
+```{r}
+
+imiss <- read.table("results/BONNET_minQ20minDP5meanDP10dDocentgeno90ind30.imiss", 
+                    header = TRUE, stringsAsFactors = FALSE)
+
+ggplot(imiss, aes(x = F_MISS)) +
+  geom_histogram(binwidth = 0.05, color = "black", fill = "grey75") +
+  geom_vline(xintercept = .25, color = "darkred", linetype = "dashed") +
+  scale_x_continuous(limits = c(0, 1)) +
+  theme_standard
+
+LQ_indv <- imiss %>%
+  filter(F_MISS > 0.25) %>%
+  select(INDV)
+
+write.table(LQ_indv, "results/LQ_Ind_FIL-6b",
+            col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+```
+
+Remove flagged individuals
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20minDP5meanDP10dDocentgeno90ind30.recode.vcf --out data/BONNET//BONNET_minQ20minDP5meanDP10dDocentgeno90ind25 --remove results/LQ_Ind_FIL-6b --recode --recode-INFO-all
+
+```
+
+Remove loci with genotype call rate < 95%; decompose variants and retain only SNPs.
+
+
+
+```{bash}
+
+vcftools --vcf data/BONNET//BONNET_minQ20minDP5meanDP10dDocentgeno90ind25.recode.vcf --out data/BONNET//BONNET_minQ20minDP5meanDP10dDocentgeno95ind25 --max-missing 0.95 --recode --recode-INFO-all
+
+vcfallelicprimitives data/BONNET//BONNET_minQ20minDP5meanDP10dDocentgeno95ind25.recode.vcf --keep-info --keep-geno > data/BONNET//SNPs.vcf
+
+vcftools --vcf data/BONNET//SNPs.vcf --out data/BONNET//BONNET_FIL-6 --remove-indels --recode --recode-INFO-all
+
+
+# depth indv/locus
+vcftools --vcf data/BONNET//BONNET_FIL-6.recode.vcf --out results/BONNET_FIL-6 --depth
+vcftools --vcf data/BONNET//BONNET_FIL-6.recode.vcf --out results/BONNET_FIL-6 --site-mean-depth
+vcftools --vcf data/BONNET//BONNET_FIL-6.recode.vcf --out results/BONNET_FIL-6 --geno-depth
+
+# missing data indv/locus
+vcftools --vcf data/BONNET//BONNET_FIL-6.recode.vcf --out results/BONNET_FIL-6 --missing-indv
+vcftools --vcf data/BONNET//BONNET_FIL-6.recode.vcf --out results/BONNET_FIL-6 --missing-site
+
+# allele freq/indv freq buden
+vcftools --vcf data/BONNET//BONNET_FIL-6.recode.vcf --out results/BONNET_FIL-6 --indv-freq-burden
+vcftools --vcf data/BONNET//BONNET_FIL-6.recode.vcf --out results/BONNET_FIL-6 --freq2
+vcftools --vcf data/BONNET//BONNET_FIL-6.recode.vcf --out results/BONNET_FIL-6 --singletons
+vcftools --vcf data/BONNET//BONNET_FIL-6.recode.vcf --out results/BONNET_FIL-6 --012
+
+# heterozygosity per individual
+vcftools --vcf data/BONNET//BONNET_FIL-6.recode.vcf --out results/BONNET_FIL-6 --het
+
+# SNP call quality
+vcftools --vcf data/BONNET//BONNET_FIL-6.recode.vcf --out results/BONNET_FIL-6 --site-quality
+
+```
+
+### Plot stats for filtered data set
+
+```{r stats FIL 6, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+# load stats files ----
+ind_stats_FIL_6 <- read.ind.stats(dir = "results", vcf = "BONNET_FIL-6")
+
+loc_stats_FIL_6 <- read.loc.stats(dir = "results", vcf = "BONNET_FIL-6")
+
+# plot missing data per indv ----
+p1 <- ggplot(ind_stats_FIL_6, aes(x = `MISS_BONNET_FIL-6`)) +
+  geom_histogram(binwidth = .01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MISS_BONNET_FIL-6`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "missing data per indv") +
+  theme_standard
+
+# plot Fis per indv ----
+p2 <- ggplot(ind_stats_FIL_6, aes(x = `Fis_BONNET_FIL-6`)) +
+  geom_histogram(binwidth = .01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_FIL-6`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv") +
+  theme_standard
+
+# plot read depth per indv ----
+p3 <- ggplot(ind_stats_FIL_6, aes(x = `MEAN_DEPTH_BONNET_FIL-6`)) +
+  geom_histogram(binwidth = 10, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-6`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean read depth per indv") +
+  theme_standard
+
+# plot depth vs missing ----
+p4 <- ggplot(ind_stats_FIL_6, aes(x = `MEAN_DEPTH_BONNET_FIL-6`, y = `MISS_BONNET_FIL-6`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-6`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_FIL-6`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per indv", y = "% missing data") +
+  theme_standard
+
+# plot Fis vs missing data per indv ----
+p5 <- ggplot(ind_stats_FIL_6, aes(x = `Fis_BONNET_FIL-6`, y = `MISS_BONNET_FIL-6`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_FIL-6`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_FIL-6`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.5),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv", y = "% missing data") +
+  theme_standard
+
+# plot Fis vs mean depth per indv ----
+p6 <- ggplot(ind_stats_FIL_6, aes(x = `Fis_BONNET_FIL-6`, y = `MEAN_DEPTH_BONNET_FIL-6`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`Fis_BONNET_FIL-6`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MEAN_DEPTH_BONNET_FIL-6`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "Fis per indv", y = "mean depth per indv") +
+  theme_standard
+
+# plot distribution missing data per locus ----
+p7 <- ggplot(loc_stats_FIL_6, aes(x = `MISS_BONNET_FIL-6`)) +
+  geom_histogram(binwidth = 0.01, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MISS_BONNET_FIL-6`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 0.1),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "% missing data per locus") +
+  theme_standard
+
+# plot distribution mean read depth ----
+p8 <- ggplot(loc_stats_FIL_6, aes(x = `MEAN_DEPTH_BONNET_FIL-6`)) +
+  geom_histogram(binwidth = 5, color = "black", fill = "grey95") +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-6`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean read depth per locus") +
+  theme_standard
+
+# plot read depth vs missing data ----
+p9 <- ggplot(loc_stats_FIL_6, aes(x = `MEAN_DEPTH_BONNET_FIL-6`, y = `MISS_BONNET_FIL-6`)) +
+  geom_point() +
+  geom_vline(aes(xintercept = mean(`MEAN_DEPTH_BONNET_FIL-6`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(`MISS_BONNET_FIL-6`, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 0.1),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per locus", y = "% missing data") +
+  theme_standard
+
+# plot no of SNPs per locus ----
+p10 <- loc_stats_FIL_6 %>%
+  count(CHR) %>%
+  ggplot(aes(x = n)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "grey95") + 
+  labs(x = "number of SNPs per locus") +
+  theme_standard
+
+temp <- loc_stats_FIL_6 %>%
+  count(CHR)
+
+# plot number of SNPs per contig vs. mean depth ----
+p11 <- left_join(temp, loc_stats_FIL_6) %>%
+  ggplot() +
+  geom_point(aes(x = n, y = `MEAN_DEPTH_BONNET_FIL-6`)) +
+  labs(x = "number of SNPs per contig", y = "mean depth") +
+  theme_standard
+
+# plot depth vs SNP quality ----
+site_qual <- read.table("results/BONNET_FIL-6.lqual", 
+                        header = TRUE, stringsAsFactors = FALSE) %>%
+  mutate(PROB = 10^(-QUAL/10))
+
+temp <- data.frame(loc_stats_FIL_6$`MEAN_DEPTH_BONNET_FIL-6`, site_qual$QUAL) %>%
+  rename(depth = loc_stats_FIL_6..MEAN_DEPTH_BONNET_FIL.6., qual = site_qual.QUAL)
+
+p12 <- ggplot(temp, aes(x = depth, y = qual)) +
+  geom_point(size = 1) +
+  geom_vline(aes(xintercept = mean(depth, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = mean(qual, na.rm = TRUE)),
+                 color = "red", linetype = "dashed", size = 1) +
+  geom_hline(aes(yintercept = 20),
+                 color = "darkblue", linetype = "dashed", size = 1) +
+  labs(x = "mean depth per locus", y = "SNP quality") +
+  theme_standard
+
+m8 <- multiplot(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, cols=2)
+
+```
+
+Data set contains `r nrow(ind_stats_FIL_6)` individuals and `r nrow(loc_stats_FIL_6)` loci.
+
+## Run SNP counting script
+
+```{bash, eval=FALSE, include=FALSE}
+
+# run in BONNET folder
+
+echo "FILTER SNP CONTIG INDV" > Filter.count
+
+for i in *.vcf
+do
+  SNP=$(grep -cv '#' $i)
+  CONTIG=$(grep -v '#' $i | cut -f 1 | sort | uniq | wc -l)
+  INDV=$(vcfsamplenames $i | wc -l)
+  echo "$i $SNP $CONTIG $INDV" >> Filter.count
+done
+
+```
+
+Compare SNPs/contigs/indv at each filtering step and between filtering schemes.
+
+```{r}
+
+count <- read.table("data/BONNET/Filter.count", 
+                    header = TRUE, stringsAsFactors = FALSE)
